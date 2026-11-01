@@ -26,7 +26,8 @@ def main():
     employees = [
         "seo-researcher",
         "keyword-analyst",
-         "technical-auditor"
+         "technical-auditor",
+          "competitor-analyst"
     ]
 
     for employee_name in employees:
