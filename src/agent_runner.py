@@ -1,5 +1,5 @@
-
 from pathlib import Path
+from openai_agent import OpenAIAgent
 
 
 class AgentRunner:
@@ -25,16 +25,24 @@ class AgentRunner:
 
         return agent_file.read_text(encoding="utf-8")
 
+    def create_agent(self, agent_name):
+        instructions = self.read_agent_instructions(agent_name)
+
+        if not instructions:
+            return None
+
+        return OpenAIAgent(
+            employee_name=agent_name,
+            instructions=instructions
+        )
+
 
 if __name__ == "__main__":
     runner = AgentRunner()
 
     runner.list_agents()
 
-    instructions = runner.read_agent_instructions(
-        "seo-researcher"
-    )
+    agent = runner.create_agent("seo-researcher")
 
-    if instructions:
-        print("\nSEO RESEARCHER INSTRUCTIONS:")
-        print(instructions)
+    if agent:
+        print(f"\nAI employee created: {agent.employee_name}")
