@@ -20,28 +20,26 @@ def main():
     workflow.show_workflow()
 
     runner = AgentRunner()
+
     print("\nCREATING SEO EMPLOYEES...")
 
-employees = [
-    "seo-researcher",
-    "keyword-analyst"
-]
+    employees = [
+        "seo-researcher",
+        "keyword-analyst"
+    ]
 
-for employee_name in employees:
-    agent = runner.create_agent(employee_name)
+    for employee_name in employees:
+        agent = runner.create_agent(employee_name)
 
-    if agent:
-        print(f"\nAI employee ready: {agent.employee_name}")
+        if agent:
+            print(f"\nAI employee ready: {agent.employee_name}")
 
-        result = agent.perform_task(
-            "Prepare a beginner-friendly SEO report for a small local bakery."
-        )
+            result = agent.perform_task(
+                "Prepare a beginner-friendly SEO report for a small local bakery."
+            )
 
-        print("\nEMPLOYEE REPORT:")
-        print(result)
-
-        print("\nSEO RESEARCH RESULT:")
-        print(result)
+            print("\nEMPLOYEE REPORT:")
+            print(result)
 
 
 if __name__ == "__main__":
