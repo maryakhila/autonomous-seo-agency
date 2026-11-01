@@ -7,24 +7,24 @@ class AgentRunner:
     def __init__(self):
         self.agents_folder = Path(__file__).parent.parent / "agents"
 
-   def list_agents(self):
-    print("\nAVAILABLE SEO AGENTS")
-    print("====================")
+    def list_agents(self):
+        print("\nAVAILABLE SEO AGENTS")
+        print("====================")
 
-    agent_files = sorted(
-        self.agents_folder.glob("*.md")
-    )
+        agent_files = sorted(
+            self.agents_folder.glob("*.md")
+        )
 
-    count = 0
+        count = 0
 
-    for agent_file in agent_files:
-        if agent_file.name == "README.md":
-            continue
+        for agent_file in agent_files:
+            if agent_file.name == "README.md":
+                continue
 
-        count += 1
-        print(f"{count}. {agent_file.stem}")
+            count += 1
+            print(f"{count}. {agent_file.stem}")
 
-    print(f"\nTOTAL EMPLOYEES: {count}")
+        print(f"\nTOTAL EMPLOYEES: {count}")
 
     def read_agent_instructions(self, agent_name):
         agent_file = self.agents_folder / f"{agent_name}.md"
@@ -49,7 +49,6 @@ class AgentRunner:
 
 if __name__ == "__main__":
     runner = AgentRunner()
-
     runner.list_agents()
 
     agent = runner.create_agent("seo-researcher")
