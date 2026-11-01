@@ -21,17 +21,25 @@ def main():
 
     runner = AgentRunner()
 
-    print("\nCREATING YOUR FIRST AI EMPLOYEE...")
+    print("\nCREATING SEO EMPLOYEES...")
 
-    agent = runner.create_agent("seo-researcher")
+employees = [
+    "seo-researcher",
+    "keyword-analyst"
+]
+
+for employee_name in employees:
+    agent = runner.create_agent(employee_name)
 
     if agent:
-        print(f"AI employee ready: {agent.employee_name}")
-        print("\nRunning a test SEO task...")
+        print(f"\nAI employee ready: {agent.employee_name}")
 
         result = agent.perform_task(
-            "Give me three important SEO factors for a small business website."
+            "Prepare a beginner-friendly SEO report for a small local bakery."
         )
+
+        print("\nEMPLOYEE REPORT:")
+        print(result)
 
         print("\nSEO RESEARCH RESULT:")
         print(result)
