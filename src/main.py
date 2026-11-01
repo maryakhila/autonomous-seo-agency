@@ -1,25 +1,40 @@
 import os
 from dotenv import load_dotenv
-from openai import OpenAI
+from agent_runner import AgentRunner
 from seo_workflow import SEOWorkflow
 
 load_dotenv()
+
 
 def main():
     print("WELCOME TO YOUR AUTONOMOUS SEO AGENCY")
     print("=====================================")
 
-    api_key = os.getenv("OPENAI_API_KEY")
-
-    if not api_key:
+    if not os.getenv("OPENAI_API_KEY"):
         print("OpenAI API key is not configured.")
         return
 
-    client = OpenAI(api_key=api_key)
-    print("OpenAI connection is configured successfully.")
+    print("OpenAI API key found.")
 
     workflow = SEOWorkflow()
     workflow.show_workflow()
+
+    runner = AgentRunner()
+
+    print("\nCREATING YOUR FIRST AI EMPLOYEE...")
+
+    agent = runner.create_agent("seo-researcher")
+
+    if agent:
+        print(f"AI employee ready: {agent.employee_name}")
+        print("\nRunning a test SEO task...")
+
+        result = agent.perform_task(
+            "Give me three important SEO factors for a small business website."
+        )
+
+        print("\nSEO RESEARCH RESULT:")
+        print(result)
 
 
 if __name__ == "__main__":
