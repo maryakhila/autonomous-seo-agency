@@ -1,0 +1,21 @@
+
+{
+  "agency_name": "Autonomous SEO Agency",
+  "timezone": "Europe/Riga",
+  "total_employees": 8,
+  "project_manager": "Project Manager",
+  "specialist_agents": [
+    "SEO Researcher",
+    "Keyword Analyst",
+    "Technical SEO Auditor",
+    "Content Writer",
+    "On-Page SEO Specialist",
+    "Competitor Analyst",
+    "Performance Analyst"
+  ],
+  "reporting": {
+    "daily_report": true,
+    "email_enabled": false,
+    "google_sheets_enabled": false
+  }
+}
