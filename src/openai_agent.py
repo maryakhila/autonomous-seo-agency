@@ -1,9 +1,17 @@
+import os
 from openai import OpenAI
 
 
 class OpenAIAgent:
     def __init__(self, employee_name, instructions):
-        self.client = OpenAI()
+        api_key = os.getenv("OPENAI_API_KEY")
+
+        if not api_key:
+            raise ValueError(
+                "OPENAI_API_KEY is missing. Please configure your API key."
+            )
+
+        self.client = OpenAI(api_key=api_key)
         self.employee_name = employee_name
         self.instructions = instructions
 
