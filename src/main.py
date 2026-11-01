@@ -30,7 +30,8 @@ def main():
           "competitor-analyst",
         "content-writer",
         "on-page-specialist",
-        "performance-analyst"
+        "performance-analyst",
+        "project_manager"
     ]
 
     for employee_name in employees:
