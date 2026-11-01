@@ -25,7 +25,7 @@ def main():
 
     employees = [
         "seo-researcher",
-        "keyword-analyst"
+        "keyword-analyst",
          "technical-auditor"
     ]
 
