@@ -20,7 +20,6 @@ def main():
     workflow.show_workflow()
 
     runner = AgentRunner()
-
     print("\nCREATING SEO EMPLOYEES...")
 
 employees = [
