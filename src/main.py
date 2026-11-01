@@ -29,7 +29,8 @@ def main():
          "technical-auditor",
           "competitor-analyst",
         "content-writer",
-        "on-page-specialist"
+        "on-page-specialist",
+        "performance-analyst"
     ]
 
     for employee_name in employees:
