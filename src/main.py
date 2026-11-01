@@ -27,7 +27,8 @@ def main():
         "seo-researcher",
         "keyword-analyst",
          "technical-auditor",
-          "competitor-analyst"
+          "competitor-analyst",
+        "content-writer"
     ]
 
     for employee_name in employees:
