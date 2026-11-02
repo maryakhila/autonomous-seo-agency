@@ -30,7 +30,7 @@ def main():
           "competitor-analyst",
         "content-writer",
         "on-page-specialist",
-        "project_manager",
+        "project-manager",
         "performance-analyst"
     ]
 
