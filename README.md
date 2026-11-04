@@ -102,10 +102,7 @@ Additional documentation:
 https://github.com/maryakhila/autonomous-seo-agency
 
 **Google Sheets Dashboard:**  
-[Insert your actual Google Sheets link]
-
-**Demo Video:**  
-[Insert your demonstration video link]
+[Insert your actual Google Sheets link]](https://docs.google.com/spreadsheets/d/1omDDhS-7GaX9kwHZqEdzUY9wOc93GLOEuAwG8QlZ9h4/edit?usp=sharing)
 
 ## 10. Conclusion
 
