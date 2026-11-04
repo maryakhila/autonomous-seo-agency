@@ -1,4 +1,3 @@
-# autonomous-seo-agency
 # Autonomous SEO Agency
 ### Design & Deployment of an Autonomous AI Agency
 
