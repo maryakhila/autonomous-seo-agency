@@ -1,8 +1,12 @@
 
-"""AI execution engine for the eight SEO agency employees."""
 
-import json
+
 import os
+import json
+
+from google import genai
+from google.genai import types
+
 
 EMPLOYEES = {
     "Project Manager": "Chief of Staff",
@@ -15,127 +19,144 @@ EMPLOYEES = {
     "Reporting Specialist": "Reports and documentation",
 }
 
+
 EMPLOYEE_INSTRUCTIONS = {
     "Project Manager": """
-You are the agency Project Manager.
-Analyse objectives, create execution plans, identify the right specialists,
-define deliverables, dependencies and quality checks.
-Do not claim that another employee completed work unless evidence is supplied.
+You are the SEO Agency Project Manager.
+Plan projects, break objectives into tasks, coordinate specialists,
+identify dependencies and review deliverables.
+Never claim work was completed without evidence.
 """,
+
     "Keyword Analyst": """
 You are an expert SEO keyword researcher.
-Analyse keyword opportunities, search intent, keyword clusters,
-relevance, competition and content opportunities.
-Never invent search volumes, keyword difficulty or CPC values.
-Label estimates clearly and identify data requiring SEO tools.
+Research keyword opportunities, search intent, keyword clusters,
+content gaps and keyword relevance.
+Never invent search volume, CPC or keyword difficulty.
 """,
+
     "SEO Content Writer": """
-You are an expert SEO content strategist and writer.
-Create useful, original, search-intent-focused content.
-Use clear headings, natural keyword placement, internal link suggestions,
-meta titles and descriptions.
-Avoid keyword stuffing and unsupported factual claims.
+You are a professional SEO content writer.
+Create original, useful, search-intent-focused content.
+Include headings, meta titles, meta descriptions,
+natural keyword placement and internal link suggestions.
 """,
+
     "Technical SEO Auditor": """
 You are a technical SEO specialist.
-Evaluate crawlability, indexability, site architecture,
-Core Web Vitals, structured data, redirects and technical risks.
-Distinguish verified problems from issues requiring website access.
+Analyse crawlability, indexing, redirects, site architecture,
+structured data, Core Web Vitals and technical SEO issues.
+Clearly identify anything requiring website access.
 """,
+
     "On-Page SEO Specialist": """
 You are an on-page SEO specialist.
-Improve title tags, meta descriptions, headings, URL structure,
-internal links, image alt text and content relevance.
-Explain each recommendation and its expected benefit.
+Optimise titles, descriptions, headings, URLs,
+internal links, image alt text and content structure.
+Explain your recommendations.
 """,
+
     "Off-Page SEO Specialist": """
-You are an off-page SEO and link-building specialist.
-Develop ethical backlink strategies, prospect qualification criteria,
-digital PR opportunities and outreach templates.
-Never invent backlinks or claim outreach has been sent.
+You are an off-page SEO specialist.
+Develop ethical backlink strategies, prospecting criteria,
+digital PR ideas and professional outreach templates.
+Never claim backlinks were acquired or emails sent without evidence.
 """,
+
     "SEO Performance Analyst": """
 You are an SEO performance analyst.
-Analyse supplied organic traffic, ranking, conversion and engagement data.
+Analyse supplied traffic, ranking, conversion and engagement data.
 Identify trends and opportunities.
-Never fabricate analytics, rankings or traffic figures.
+Never invent analytics or ranking figures.
 """,
+
     "Reporting Specialist": """
 You are an SEO reporting specialist.
-Produce professional reports with objectives, findings,
+Create professional reports containing findings,
 completed work, recommendations, risks and next steps.
-Clearly distinguish actual measurements from estimates.
+Separate verified results from estimates.
 """,
 }
 
 
 def get_api_key():
-    """Read the API key from environment variables or Streamlit Secrets."""
-    key = os.getenv("OPENAI_API_KEY")
+    """Retrieve Gemini API key securely."""
+
+    key = os.getenv("GEMINI_API_KEY")
 
     if not key:
         try:
             import streamlit as st
-            key = st.secrets.get("OPENAI_API_KEY")
+            key = st.secrets.get("GEMINI_API_KEY", "")
         except Exception:
-            key = None
+            key = ""
 
     if not key:
         raise RuntimeError(
-            "OPENAI_API_KEY is missing. Add it to Streamlit Cloud Secrets."
+            "GEMINI_API_KEY is missing. "
+            "Add it to Streamlit Cloud Secrets."
         )
 
     return key
 
 
 def run_employee_task(employee_name, task):
-    """Execute a task using the selected AI employee."""
+    """Execute a task using the selected Gemini AI employee."""
 
     if employee_name not in EMPLOYEES:
         raise ValueError(f"Unknown employee: {employee_name}")
 
-    from openai import OpenAI
-
-    client = OpenAI(api_key=get_api_key())
-
-    task_data = task if isinstance(task, dict) else {
-        "description": str(task)
-    }
-
-    instructions = EMPLOYEE_INSTRUCTIONS[employee_name]
+    task_data = (
+        task if isinstance(task, dict)
+        else {"description": str(task)}
+    )
 
     prompt = f"""
-Execute the following assigned agency task.
-
 EMPLOYEE: {employee_name}
 ROLE: {EMPLOYEES[employee_name]}
 
-TASK DETAILS:
+ASSIGNED TASK:
 {json.dumps(task_data, indent=2, ensure_ascii=False, default=str)}
 
-REQUIREMENTS:
-1. Complete as much useful work as possible.
-2. Provide a detailed, practical deliverable.
-3. Explain your methodology and recommendations.
-4. Identify missing information and limitations.
-5. Never invent research data, website audits, rankings,
-   backlinks, traffic statistics or completed actions.
-6. Separate verified information from assumptions.
-7. End with a section called NEXT STEPS.
-
-Return the actual work product, not a description of what you
-would do in the future.
+INSTRUCTIONS:
+1. Complete the assigned work.
+2. Produce a useful, detailed deliverable.
+3. Explain your recommendations.
+4. Identify missing information.
+5. Never invent search metrics, rankings or analytics.
+6. Distinguish verified facts from assumptions.
+7. Include a NEXT STEPS section.
 """
 
-    response = client.responses.create(
-        model=os.getenv("OPENAI_MODEL", "gpt-5.5"),
-        instructions=instructions,
-        input=prompt,
-    )
+    client = genai.Client(api_key=get_api_key())
 
-    output = response.output_text.strip()
+    try:
+        with client:
+            response = client.models.generate_content(
+                model=os.getenv(
+                    "GEMINI_MODEL",
+                    "gemini-3.8-flash"
+                ),
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    system_instruction=EMPLOYEE_INSTRUCTIONS[
+                        employee_name
+                    ],
+                    temperature=0.4,
+                    max_output_tokens=8192,
+                ),
+            )
 
-    if not output:
-        raise RuntimeError("The AI employee returned an empty result.")
+        output = (response.text or "").strip()
 
-    return output
+        if not output:
+            raise RuntimeError(
+                "Gemini returned an empty response."
+            )
+
+        return output
+
+    except Exception as error:
+        raise RuntimeError(
+            f"{employee_name} execution failed: {error}"
+        ) from error
