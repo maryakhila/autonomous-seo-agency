@@ -50,3 +50,20 @@ Use a Google App Password (with 2-Step Verification enabled), not your normal Gm
 
 ## Security / academic honesty
 The login is a basic single-Boss gate suitable for a course prototype, not enterprise-grade authentication. Use a strong password and do not publish credentials in GitHub. Do not use fabricated task results, leads, posts, or KPI values. Test every integration and show only real records in your demonstration.
+
+## Gemini task execution (updated)
+
+The Boss dashboard now invokes the Gemini employee runner when a task is created.
+The task is first saved as `Queued`, then changed to `In Progress`; on successful
+Gemini execution its generated deliverable is saved in the task record and the
+status becomes `Completed`. If execution fails (for example, missing API key or
+provider error), the task becomes `Blocked` and the failure reason is recorded.
+Queued or blocked tasks can also be run/retried from the Live Task Board.
+
+This first implementation runs synchronously in the Streamlit request so the
+course demonstration can show the result immediately. For a production system,
+move execution to a background worker/queue and use durable shared storage.
+
+Required Streamlit secrets include `GEMINI_API_KEY`, `BOSS_USERNAME`, and
+`BOSS_PASSWORD`. Google Sheets and SMTP secrets are optional for local task
+execution, but required for those integrations. Never commit real credentials.

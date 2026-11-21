@@ -5,7 +5,8 @@ from database import init_db, list_tasks, create_task, update_task, get_task, em
 from project_manager import answer_boss_question, try_create_task_from_chat
 from google_sheets import sync_task_to_sheet, sheet_is_configured
 from email_report import build_daily_report, send_daily_report
-from agent_runner import EMPLOYEES, run_employee_task
+from agent_runner import EMPLOYEES
+from task_execution import execute_task
 
 st.set_page_page_config = None
 st.set_page_config(page_title="Autonomous SEO Agency | Boss Command Center", page_icon="📈", layout="wide")
@@ -78,10 +79,18 @@ elif page == "Task Assignment":
             st.error("Enter both a title and a description.")
         else:
             task_id = create_task(title, description, assignee, priority, deadline.isoformat(), "Boss")
-            task = get_task(task_id)
-            sync_task_to_sheet(task)
-            st.success(f"Task {task_id} created and saved.")
-            st.info("The task is queued. An employee can pick it up from the Live Task Board. Automatic execution requires a connected employee implementation.")
+            sync_task_to_sheet(get_task(task_id))
+            with st.spinner(f"{assignee} is working on task #{task_id} using Gemini AI..."):
+                result = execute_task(task_id, sync_callback=sync_task_to_sheet)
+            if result["success"]:
+                st.success(f"Task {task_id} completed by {assignee}. The employee's actual output has been saved.")
+                st.markdown("**Employee output**")
+                st.markdown(result["task"]["output_link"])
+            else:
+                st.error(f"Task {task_id} is blocked. Check the task details for the execution error.")
+                st.warning(result["task"]["blocked_reason"])
+            if not sheet_is_configured():
+                st.warning("Google Sheets is not configured. The task is saved in the local database, but the external ledger was not updated.")
     st.divider()
     st.subheader("Assign via Project Manager")
     st.write("The Project Manager is also an assignable role. Assigning to the Project Manager records a coordination task; the PM can then create specialist tasks.")
@@ -111,6 +120,17 @@ elif page == "Live Task Board":
             st.write("Created:", task["created_at"], "| Deadline:", task["deadline"] or "Not set")
             st.write("Output/result:", task["output_link"] or "No output recorded")
             st.write("Blocked reason:", task["blocked_reason"] or "—")
+            if task["status"] in ("Queued", "Blocked"):
+                if st.button("Run / Retry this task with Gemini", key=f"run_task_{selected}"):
+                    with st.spinner(f"{task['agent_name']} is executing task #{selected}..."):
+                        result = execute_task(selected, sync_callback=sync_task_to_sheet)
+                    if result["success"]:
+                        st.success("Employee execution completed and saved.")
+                        st.markdown(result["task"]["output_link"])
+                    else:
+                        st.error("Employee execution failed; task marked Blocked.")
+                        st.warning(result["task"]["blocked_reason"])
+                    st.rerun()
             with st.form("update_task"):
                 new_status = st.selectbox("Update status", ["Queued", "In Progress", "Blocked", "Completed"], index=["Queued","In Progress","Blocked","Completed"].index(task["status"]))
                 output = st.text_input("Output / result link or description", value=task["output_link"] or "")
