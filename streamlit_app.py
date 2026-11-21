@@ -1,694 +1,242 @@
 
 import streamlit as st
 import pandas as pd
-from datetime import datetime, date
-import uuid
+from datetime import date, timedelta
 
-# --------------------------------------------------
-# PAGE CONFIGURATION
-# --------------------------------------------------
+from database import (
+    init_db, list_tasks, create_task, update_task,
+    get_task, employee_stats, get_employee_overview,
+    chat_history, save_chat
+)
+from project_manager import answer_boss_question, try_create_task_from_chat
+from google_sheets import sync_task_to_sheet, sheet_is_configured
+from email_report import build_daily_report, send_daily_report
+from agent_runner import EMPLOYEES
 
 st.set_page_config(
     page_title="Autonomous SEO Agency",
-    page_icon="🚀",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    page_icon="📈",
+    layout="wide"
 )
 
-# --------------------------------------------------
-# AGENCY INFORMATION
-# --------------------------------------------------
+init_db()
 
-EMPLOYEES = [
-    {
-        "name": "Keyword Analyst",
-        "role": "Keyword research and search intent analysis",
-        "responsibility": "Find relevant keywords and analyze search opportunities."
-    },
-    {
-        "name": "SEO Content Writer",
-        "role": "SEO content creation",
-        "responsibility": "Prepare SEO-friendly articles and website content."
-    },
-    {
-        "name": "Technical SEO Auditor",
-        "role": "Technical website auditing",
-        "responsibility": "Identify technical SEO issues and recommend fixes."
-    },
-    {
-        "name": "On-Page SEO Specialist",
-        "role": "On-page optimization",
-        "responsibility": "Optimize titles, headings, metadata and page content."
-    },
-    {
-        "name": "Off-Page SEO Specialist",
-        "role": "Off-page optimization",
-        "responsibility": "Research backlink opportunities and external SEO activities."
-    },
-    {
-        "name": "SEO Performance Analyst",
-        "role": "SEO performance analysis",
-        "responsibility": "Analyze traffic, rankings and SEO performance data."
-    },
-    {
-        "name": "Reporting Specialist",
-        "role": "Reporting and documentation",
-        "responsibility": "Prepare reports and communicate project progress."
-    }
-]
+# Boss login
+if not st.session_state.get("authenticated", False):
+    st.title("Autonomous SEO Agency")
+    st.subheader("Boss Login")
 
-# --------------------------------------------------
-# SESSION STATE
-# --------------------------------------------------
+    try:
+        username = st.secrets["BOSS_USERNAME"]
+        password = st.secrets["BOSS_PASSWORD"]
+    except Exception:
+        st.error("Please configure BOSS_USERNAME and BOSS_PASSWORD in Streamlit Secrets.")
+        st.stop()
 
-if "tasks" not in st.session_state:
-    st.session_state.tasks = [
-        {
-            "ID": "TASK-001",
-            "Task": "Research target keywords",
-            "Employee": "Keyword Analyst",
-            "Priority": "High",
-            "Status": "Completed",
-            "Created": str(date.today())
-        },
-        {
-            "ID": "TASK-002",
-            "Task": "Prepare SEO article",
-            "Employee": "SEO Content Writer",
-            "Priority": "Medium",
-            "Status": "In Progress",
-            "Created": str(date.today())
-        },
-        {
-            "ID": "TASK-003",
-            "Task": "Perform technical SEO audit",
-            "Employee": "Technical SEO Auditor",
-            "Priority": "High",
-            "Status": "Pending",
-            "Created": str(date.today())
-        }
-    ]
+    entered_user = st.text_input("Username")
+    entered_password = st.text_input("Password", type="password")
 
-if "clients" not in st.session_state:
-    st.session_state.clients = []
+    if st.button("Sign in"):
+        if entered_user == username and entered_password == password:
+            st.session_state["authenticated"] = True
+            st.rerun()
+        else:
+            st.error("Incorrect login details.")
 
-if "audits" not in st.session_state:
-    st.session_state.audits = {
-        employee["name"]: "Not Audited"
-        for employee in EMPLOYEES
-    }
+    st.stop()
 
-if "chat" not in st.session_state:
-    st.session_state.chat = []
-
-# --------------------------------------------------
-# HELPER FUNCTIONS
-# --------------------------------------------------
-
-def get_task_dataframe():
-    return pd.DataFrame(st.session_state.tasks)
-
-
-def get_daily_summary():
-    tasks = get_task_dataframe()
-
-    if tasks.empty:
-        return "No tasks have been created yet."
-
-    completed = len(tasks[tasks["Status"] == "Completed"])
-    progress = len(tasks[tasks["Status"] == "In Progress"])
-    pending = len(tasks[tasks["Status"] == "Pending"])
-
-    summary = f"""
-AUTONOMOUS SEO AGENCY
-DAILY PROJECT MANAGER SUMMARY
-
-Date: {date.today()}
-
-Total Tasks: {len(tasks)}
-Completed Tasks: {completed}
-In Progress Tasks: {progress}
-Pending Tasks: {pending}
-
-TASK DETAILS
-"""
-
-    for _, task in tasks.iterrows():
-        summary += (
-            f"\n{task['ID']} | {task['Task']} | "
-            f"{task['Employee']} | {task['Status']}"
-        )
-
-    return summary
-
-
-def answer_boss_question(question):
-    tasks = get_task_dataframe()
-    q = question.lower()
-
-    if tasks.empty:
-        return "There are currently no tasks in the agency ledger."
-
-    if "completed" in q:
-        count = len(tasks[tasks["Status"] == "Completed"])
-        return f"The agency has completed {count} task(s)."
-
-    if "pending" in q:
-        count = len(tasks[tasks["Status"] == "Pending"])
-        return f"There are {count} pending task(s)."
-
-    if "employee" in q or "team" in q:
-        return (
-            "The agency has 7 specialist AI employees "
-            "managed by the Project Manager."
-        )
-
-    if "task" in q or "project" in q or "status" in q:
-        return (
-            f"The agency currently has {len(tasks)} tasks. "
-            f"{len(tasks[tasks['Status'] == 'Completed'])} completed, "
-            f"{len(tasks[tasks['Status'] == 'In Progress'])} in progress, "
-            f"and {len(tasks[tasks['Status'] == 'Pending'])} pending."
-        )
-
-    return (
-        "I can report on agency tasks, completed work, pending work "
-        "and the seven AI employees. Ask me a question about these areas."
-    )
-
-
-# --------------------------------------------------
-# SIDEBAR
-# --------------------------------------------------
-
-st.sidebar.title("🚀 Autonomous SEO Agency")
-st.sidebar.caption("AI Agency Management System")
-
+# Navigation
+st.sidebar.title("SEO Agency")
 page = st.sidebar.radio(
-    "Navigation",
+    "Dashboard",
     [
         "Agency Overview",
-        "Project Manager",
-        "AI Employees",
-        "Client Management",
-        "Task Management",
-        "SEO Performance",
-        "Reports"
+        "Task Assignment",
+        "Live Task Board",
+        "Reports & KPIs",
+        "Boss Chat",
+        "Employee Overview",
+        "Integrations"
     ]
 )
 
-st.sidebar.divider()
+if st.sidebar.button("Sign out"):
+    st.session_state["authenticated"] = False
+    st.rerun()
 
-st.sidebar.info(
-    "Prototype mode: dashboard data is stored in the current "
-    "application session. External integrations are not connected yet."
-)
+st.title(page)
 
-# --------------------------------------------------
-# HEADER
-# --------------------------------------------------
-
-st.title("🚀 Autonomous SEO Agency")
-st.caption(
-    "AI-powered SEO management | Human supervision | "
-    "Automated workflow prototype"
-)
-
-st.divider()
-
-# --------------------------------------------------
-# 1. AGENCY OVERVIEW
-# --------------------------------------------------
-
+# 1. Agency Overview
 if page == "Agency Overview":
-
-    st.header("📊 Agency Overview")
-
-    tasks = get_task_dataframe()
-
-    total = len(tasks)
-    completed = len(tasks[tasks["Status"] == "Completed"]) if total else 0
-    progress = len(tasks[tasks["Status"] == "In Progress"]) if total else 0
-    pending = len(tasks[tasks["Status"] == "Pending"]) if total else 0
+    tasks = list_tasks()
 
     c1, c2, c3, c4 = st.columns(4)
+    c1.metric("Total tasks", len(tasks))
+    c2.metric("Queued", sum(t["status"] == "Queued" for t in tasks))
+    c3.metric("In progress", sum(t["status"] == "In Progress" for t in tasks))
+    c4.metric("Blocked", sum(t["status"] == "Blocked" for t in tasks))
 
-    c1.metric("AI Employees", "7")
-    c2.metric("Total Tasks", total)
-    c3.metric("Completed", completed)
-    c4.metric("Pending", pending)
-
-    st.subheader("Agency Team")
-
-    st.write(
-        "The Project Manager supervises seven specialist AI employees."
+    st.subheader("Agency workflow")
+    st.markdown(
+        "Boss → Project Manager → Seven SEO Employees "
+        "→ Database → Google Sheets → Reports and Email"
     )
 
-    st.subheader("Task Overview")
-
-    if not tasks.empty:
-        st.dataframe(tasks, use_container_width=True)
-
-        status_counts = (
-            tasks["Status"]
-            .value_counts()
-            .reindex(
-                ["Completed", "In Progress", "Pending"],
-                fill_value=0
-            )
-        )
-
-        st.subheader("Task Status Distribution")
-        st.bar_chart(status_counts)
+    if tasks:
+        st.dataframe(pd.DataFrame(tasks), use_container_width=True)
     else:
-        st.info("No tasks have been created.")
+        st.info("No tasks have been created yet.")
 
-    st.info(
-        "Metrics above are calculated from the agency's current "
-        "prototype task ledger."
-    )
-
-# --------------------------------------------------
-# 2. PROJECT MANAGER
-# --------------------------------------------------
-
-elif page == "Project Manager":
-
-    st.header("👔 Project Manager — Chief of Staff")
-
-    st.write(
-        "The Project Manager is responsible for supervising "
-        "all seven AI employees and coordinating agency operations."
-    )
-
-    st.subheader("Six Core Responsibilities")
-
-    responsibilities = [
-        "Audit all seven AI employees",
-        "Assign tasks to the correct employees",
-        "Track employee tasks and progress",
-        "Maintain the shared Google Sheets ledger",
-        "Prepare and email the Boss a daily summary",
-        "Answer the Boss's questions in dashboard chat"
-    ]
-
-    for item in responsibilities:
-        st.write("✅", item)
-
-    st.divider()
-
-    # EMPLOYEE AUDIT
-
-    st.subheader("1. Employee Audit Dashboard")
-
-    st.caption(
-        "Select an audit status after reviewing each employee. "
-        "These statuses are manually recorded in this prototype."
-    )
-
-    for employee in EMPLOYEES:
-
-        name = employee["name"]
-
-        with st.expander(name):
-
-            st.write("**Role:**", employee["role"])
-            st.write("**Responsibility:**", employee["responsibility"])
-
-            status = st.selectbox(
-                "Audit status",
-                [
-                    "Not Audited",
-                    "Under Review",
-                    "Approved",
-                    "Needs Improvement"
-                ],
-                index=[
-                    "Not Audited",
-                    "Under Review",
-                    "Approved",
-                    "Needs Improvement"
-                ].index(st.session_state.audits[name]),
-                key=f"audit_{name}"
-            )
-
-            st.session_state.audits[name] = status
-
-    audit_df = pd.DataFrame([
-        {"Employee": name, "Audit Status": status}
-        for name, status in st.session_state.audits.items()
-    ])
-
-    st.dataframe(audit_df, use_container_width=True)
-
-    st.divider()
-
-    # DAILY SUMMARY
-
-    st.subheader("2. Daily Summary for the Boss")
-
-    summary = get_daily_summary()
-
-    st.text_area(
-        "Daily management summary",
-        value=summary,
-        height=220
-    )
-
-    st.download_button(
-        "Download Daily Summary",
-        data=summary,
-        file_name=f"agency_summary_{date.today()}.txt",
-        mime="text/plain"
-    )
-
-    st.warning(
-        "Email is not connected yet. Downloading this summary does "
-        "not send an email to the Boss."
-    )
-
-    st.divider()
-
-    # GOOGLE SHEETS
-
-    st.subheader("3. Shared Google Sheets Ledger")
-
-    st.write(
-        "The current task ledger can be downloaded as CSV. "
-        "Google Sheets synchronization requires account credentials "
-        "and a configured spreadsheet."
-    )
-
-    tasks = get_task_dataframe()
-
-    if not tasks.empty:
-        csv = tasks.to_csv(index=False).encode("utf-8")
-
-        st.download_button(
-            "Download Task Ledger CSV",
-            data=csv,
-            file_name="agency_task_ledger.csv",
-            mime="text/csv"
-        )
-
-    st.info("Google Sheets connection: Not configured")
-
-    st.divider()
-
-    # BOSS CHAT
-
-    st.subheader("4. Ask the Project Manager")
-
-    for message in st.session_state.chat:
-        with st.chat_message(message["role"]):
-            st.write(message["content"])
-
-    question = st.chat_input(
-        "Ask about employees, tasks or agency progress..."
-    )
-
-    if question:
-        st.session_state.chat.append(
-            {"role": "user", "content": question}
-        )
-
-        response = answer_boss_question(question)
-
-        st.session_state.chat.append(
-            {"role": "assistant", "content": response}
-        )
-
-        st.rerun()
-
-    st.caption(
-        "The current chat uses predefined responses based on dashboard "
-        "data. An AI model connection is required for intelligent answers."
-    )
-
-# --------------------------------------------------
-# 3. AI EMPLOYEES
-# --------------------------------------------------
-
-elif page == "AI Employees":
-
-    st.header("🤖 Seven AI Employees")
-
-    st.write(
-        "The specialist team works under the supervision "
-        "of the Project Manager."
-    )
-
-    for number, employee in enumerate(EMPLOYEES, start=1):
-
-        with st.container(border=True):
-
-            st.subheader(
-                f"{number}. {employee['name']}"
-            )
-
-            st.write("**Role:**", employee["role"])
-            st.write("**Responsibilities:**", employee["responsibility"])
-
-            st.write(
-                "**Audit Status:**",
-                st.session_state.audits[employee["name"]]
-            )
-
-# --------------------------------------------------
-# 4. CLIENT MANAGEMENT
-# --------------------------------------------------
-
-elif page == "Client Management":
-
-    st.header("👥 Client Management")
-
-    st.write("Register and manage SEO agency clients.")
-
-    with st.form("client_form"):
-
-        client_name = st.text_input("Client name")
-        website = st.text_input("Website URL")
-        industry = st.text_input("Industry")
-
-        submitted = st.form_submit_button("Add Client")
-
-        if submitted:
-
-            if client_name and website:
-
-                st.session_state.clients.append({
-                    "Client": client_name,
-                    "Website": website,
-                    "Industry": industry
-                })
-
-                st.success("Client added to this session.")
-
-            else:
-                st.warning("Please enter a client name and website.")
-
-    st.subheader("Client List")
-
-    if st.session_state.clients:
-        st.dataframe(
-            pd.DataFrame(st.session_state.clients),
-            use_container_width=True
-        )
-    else:
-        st.info("No clients registered yet.")
-
-# --------------------------------------------------
-# 5. TASK MANAGEMENT
-# --------------------------------------------------
-
-elif page == "Task Management":
-
-    st.header("📋 Task Management")
-
-    st.write(
-        "The Project Manager assigns tasks to the seven specialist "
-        "employees and tracks their progress."
-    )
-
+# 2. Task Assignment
+elif page == "Task Assignment":
     with st.form("task_form"):
-
-        task_name = st.text_input("Task description")
-
-        employee_name = st.selectbox(
-            "Assign employee",
-            [employee["name"] for employee in EMPLOYEES]
-        )
-
+        title = st.text_input("Task title")
+        description = st.text_area("Task description")
+        employee = st.selectbox("Assign employee", list(EMPLOYEES.keys()))
         priority = st.selectbox(
-            "Priority",
-            ["Low", "Medium", "High", "Urgent"]
+            "Priority", ["Low", "Medium", "High", "Urgent"]
+        )
+        deadline = st.date_input(
+            "Deadline", value=date.today() + timedelta(days=1)
         )
 
-        submitted = st.form_submit_button("Create and Assign Task")
+        submitted = st.form_submit_button("Create task")
 
-        if submitted:
-
-            if task_name.strip():
-
-                new_task = {
-                    "ID": "TASK-" + uuid.uuid4().hex[:6].upper(),
-                    "Task": task_name,
-                    "Employee": employee_name,
-                    "Priority": priority,
-                    "Status": "Pending",
-                    "Created": str(date.today())
-                }
-
-                st.session_state.tasks.append(new_task)
-
-                st.success(
-                    f"Task assigned to {employee_name}."
-                )
-
-            else:
-                st.warning("Please enter a task description.")
-
-    st.divider()
-
-    st.subheader("Update Task Progress")
-
-    tasks = get_task_dataframe()
-
-    if not tasks.empty:
-
-        edited_tasks = st.data_editor(
-            tasks,
-            use_container_width=True,
-            hide_index=True,
-            disabled=[
-                "ID",
-                "Task",
-                "Employee",
-                "Priority",
-                "Created"
-            ],
-            column_config={
-                "Status": st.column_config.SelectboxColumn(
-                    "Status",
-                    options=[
-                        "Pending",
-                        "In Progress",
-                        "Completed"
-                    ],
-                    required=True
-                )
-            },
-            key="task_editor"
-        )
-
-        if st.button("Save Task Updates"):
-
-            st.session_state.tasks = edited_tasks.to_dict(
-                orient="records"
+    if submitted:
+        if title.strip() and description.strip():
+            task_id = create_task(
+                title, description, employee, priority,
+                deadline.isoformat(), "Boss"
             )
+            sync_task_to_sheet(get_task(task_id))
+            st.success(f"Task #{task_id} created.")
+        else:
+            st.error("Please enter a title and description.")
 
-            st.success("Task updates saved in this session.")
-            st.rerun()
+# 3. Live Task Board
+elif page == "Live Task Board":
+    tasks = list_tasks()
 
+    if tasks:
+        df = pd.DataFrame(tasks)
+
+        employee_filter = st.selectbox(
+            "Filter employee",
+            ["All"] + sorted(df["agent_name"].unique().tolist())
+        )
+        status_filter = st.selectbox(
+            "Filter status",
+            ["All", "Queued", "In Progress", "Blocked", "Completed"]
+        )
+
+        if employee_filter != "All":
+            df = df[df["agent_name"] == employee_filter]
+
+        if status_filter != "All":
+            df = df[df["status"] == status_filter]
+
+        st.dataframe(df, use_container_width=True)
+
+        task_id = st.selectbox("Select task", df["id"].tolist())
+        task = get_task(int(task_id))
+
+        st.write("Description:", task["description"])
+        st.write("Output:", task["output_link"] or "Not recorded")
+        st.write("Blocked reason:", task["blocked_reason"] or "None")
+
+        with st.form("status_form"):
+            status = st.selectbox(
+                "New status",
+                ["Queued", "In Progress", "Blocked", "Completed"]
+            )
+            output = st.text_input("Output or result link")
+            reason = st.text_input("Blocked reason")
+
+            if st.form_submit_button("Update task"):
+                if status == "Blocked" and not reason.strip():
+                    st.error("Please enter the blocked reason.")
+                else:
+                    update_task(task_id, status, output, reason)
+                    sync_task_to_sheet(get_task(task_id))
+                    st.success("Task updated.")
+                    st.rerun()
     else:
         st.info("No tasks available.")
 
-# --------------------------------------------------
-# 6. SEO PERFORMANCE
-# --------------------------------------------------
-
-elif page == "SEO Performance":
-
-    st.header("📈 SEO Performance Dashboard")
-
-    st.write(
-        "This dashboard is prepared for website traffic, "
-        "keyword rankings, backlinks and SEO health metrics."
+# 4. Reports
+elif page == "Reports & KPIs":
+    st.subheader("Employee performance")
+    st.dataframe(
+        pd.DataFrame(employee_stats()),
+        use_container_width=True
     )
 
-    st.warning(
-        "The following figures are illustrative sample data, "
-        "not live Google Analytics or Search Console results."
-    )
-
-    c1, c2, c3, c4 = st.columns(4)
-
-    c1.metric("Organic Visitors", "1,250")
-    c2.metric("Tracked Keywords", "85")
-    c3.metric("Backlinks", "240")
-    c4.metric("SEO Health Score", "78/100")
-
-    performance = pd.DataFrame({
-        "Month": ["January", "February", "March", "April", "May"],
-        "Organic Visitors": [600, 750, 820, 1050, 1250]
-    })
-
-    st.subheader("Illustrative Organic Traffic")
-    st.line_chart(
-        performance.set_index("Month")
-    )
-
-    st.info(
-        "Connect Google Analytics and Google Search Console "
-        "to replace sample figures with actual website data."
-    )
-
-# --------------------------------------------------
-# 7. REPORTS
-# --------------------------------------------------
-
-elif page == "Reports":
-
-    st.header("📑 Agency Reports")
-
-    tasks = get_task_dataframe()
-
-    st.subheader("Task Report")
-
-    if not tasks.empty:
-
-        st.dataframe(tasks, use_container_width=True)
-
-        report_csv = tasks.to_csv(index=False).encode("utf-8")
-
+    tasks = list_tasks()
+    if tasks:
+        df = pd.DataFrame(tasks)
+        st.bar_chart(df["status"].value_counts())
         st.download_button(
-            "Download Agency Task Report",
-            data=report_csv,
-            file_name="seo_agency_report.csv",
-            mime="text/csv"
+            "Download CSV report",
+            df.to_csv(index=False).encode("utf-8"),
+            "agency_report.csv",
+            "text/csv"
         )
-
     else:
-        st.info("No task data available.")
+        st.info("Reports will appear after tasks are recorded.")
 
-    st.subheader("Employee Audit Report")
-
-    audit_report = pd.DataFrame([
-        {
-            "Employee": employee,
-            "Audit Status": status
-        }
-        for employee, status in st.session_state.audits.items()
-    ])
-
-    st.dataframe(audit_report, use_container_width=True)
-
-    audit_csv = audit_report.to_csv(index=False).encode("utf-8")
-
-    st.download_button(
-        "Download Employee Audit Report",
-        data=audit_csv,
-        file_name="employee_audit_report.csv",
-        mime="text/csv"
+# 5. Boss Chat
+elif page == "Boss Chat":
+    role = st.selectbox(
+        "Chat with",
+        ["Project Manager"] + list(EMPLOYEES.keys())[1:]
     )
 
-# --------------------------------------------------
-# FOOTER
-# --------------------------------------------------
+    for message in chat_history(role)[-30:]:
+        with st.chat_message(message["speaker"]):
+            st.write(message["message"])
 
-st.divider()
+    prompt = st.chat_input("Ask your Project Manager...")
 
-st.caption(
-    "Autonomous SEO Agency | Developed by Mary Akhila | "
-    "Management Dashboard Prototype"
-)
+    if prompt:
+        save_chat(role, "user", prompt)
+
+        task_id = try_create_task_from_chat(prompt)
+
+        if task_id:
+            response = f"Task #{task_id} created and queued."
+            sync_task_to_sheet(get_task(task_id))
+        else:
+            response = answer_boss_question(prompt)
+
+        save_chat(role, "assistant", response)
+        st.rerun()
+
+# 6. Employee Overview
+elif page == "Employee Overview":
+    employees = get_employee_overview()
+
+    for employee in employees:
+        with st.container(border=True):
+            st.subheader(employee["name"])
+            st.write("Role:", employee["role"])
+            st.write("Status:", employee["status"])
+            st.write("Current task:", employee["current_task"] or "Idle")
+            st.write("Today's completed outputs:", employee["today_outputs"])
+
+# 7. Integrations
+elif page == "Integrations":
+    st.write(
+        "Google Sheets:",
+        "Configured" if sheet_is_configured() else "Not configured"
+    )
+
+    st.subheader("Daily email report")
+
+    if st.button("Send report now"):
+        try:
+            send_daily_report()
+            st.success("Email report sent.")
+        except Exception as error:
+            st.error(str(error))
+
+    st.text(build_daily_report())
