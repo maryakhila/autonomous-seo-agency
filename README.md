@@ -1,4 +1,4 @@
-# Autonomous SEO Agency — Boss Command Center
+# Autonomous SEO Agency 
 
 ## Included
 - Boss-only login (credentials configured in Streamlit Secrets)
