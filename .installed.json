@@ -1,0 +1,19 @@
+{
+  "agency": "Autonomous SEO Agency",
+  "version": "1.0.0",
+  "employees": [
+    {"name":"Project Manager","module":"project_manager","status":"coordination"},
+    {"name":"Keyword Analyst","module":"agents.keyword_analyst","status":"adapter_required"},
+    {"name":"SEO Content Writer","module":"agents.content_writer","status":"adapter_required"},
+    {"name":"Technical SEO Auditor","module":"agents.technical_seo_auditor","status":"adapter_required"},
+    {"name":"On-Page SEO Specialist","module":"agents.on_page_seo","status":"adapter_required"},
+    {"name":"Off-Page SEO Specialist","module":"agents.off_page_seo","status":"adapter_required"},
+    {"name":"SEO Performance Analyst","module":"agents.seo_performance_analyst","status":"adapter_required"},
+    {"name":"Reporting Specialist","module":"agents.reporting_specialist","status":"adapter_required"}
+  ],
+  "integrations": {
+    "database": "SQLite for local development; configure durable storage for hosted deployment",
+    "google_sheets": "gspread",
+    "email": "SMTP"
+  }
+}

@@ -1,111 +1,52 @@
-# Autonomous SEO Agency
-### Design & Deployment of an Autonomous AI Agency
+# Autonomous SEO Agency — Boss Command Center
 
-## 1. Project Overview
+## Included
+- Boss-only login (credentials configured in Streamlit Secrets)
+- Eight employee roles: Project Manager + seven SEO specialists
+- Task assignment, live task board, status updates, filters, task output and timestamps
+- SQLite task and chat persistence for local development
+- Google Sheets ledger upsert integration
+- Daily email report generation and SMTP sending
+- CSV task export and employee task KPIs
+- Chat answers based on saved task records; explicitly refuses to invent missing leads/posts
+- `.installed.json` employee/integration manifest
 
-The Autonomous SEO Agency is an AI-powered team designed to automate and coordinate essential Search Engine Optimization (SEO) activities.
+## Important limitations before grading
+This is a connected foundation, not a finished autonomous agency. The employee execution adapters are intentionally unimplemented in `agent_runner.py`; connect your existing `agents/` and `src/` code there. Sales leads, content publication records and support tickets need their own real data tables/integrations before those KPIs can be reported. Chat task creation currently supports a simple phrase pattern, not unrestricted natural-language parsing.
 
-The project uses eight specialized AI employees who collaborate to research keywords, audit websites, optimize content, analyze competitors, and monitor SEO performance.
+For Streamlit Community Cloud, the local SQLite file may not be durable across restarts/redeployments. Use a managed PostgreSQL database for graded hosting and adapt `database.py` to that provider before relying on hosted persistence. Never claim data is persistent until tested.
 
-A dedicated Project Manager coordinates the team, tracks tasks, and prepares daily progress reports.
+## Run locally
+```bash
+python -m venv .venv
+# Windows: .venv\Scripts\activate
+# macOS/Linux: source .venv/bin/activate
+pip install -r requirements.txt
+streamlit run streamlit_app.py
+```
 
-## 2. Project Objectives
+For local secrets, create `.streamlit/secrets.toml` from `.streamlit/secrets.toml.example` and fill in your own values. Do not commit `secrets.toml`.
 
-- Build a team of eight specialized AI employees.
-- Automate SEO research and optimization tasks.
-- Coordinate employee activities through a Project Manager.
-- Track task execution using Google Sheets.
-- Generate daily progress reports through Gmail.
-- Improve workflow efficiency through autonomous AI collaboration.
+## Deploy
+1. Push this project to your GitHub repository.
+2. In Streamlit Community Cloud, create an app from the repository.
+3. Set the main file path to `streamlit_app.py`.
+4. In App Settings → Secrets, add the values from the example secrets file.
+5. Deploy and test login, task creation, status updates, Google Sheets sync and email.
+6. Configure a managed database for durable hosted records.
+7. Configure an external scheduler to run `python send_daily_email.py` daily. A continuously running Streamlit process is not a daily scheduler.
 
-## 3. AI Employee Structure
+## Google Sheets setup
+1. Create a Google Cloud service account and enable Google Sheets API and Google Drive API.
+2. Download its JSON credentials.
+3. Add those credentials under `[gcp_service_account]` in Streamlit Secrets.
+4. Share the spreadsheet with the service account's `client_email` as Editor.
+5. Put the spreadsheet ID in `GOOGLE_SHEET_ID`.
 
-| Employee | Main Responsibility |
-|---|---|
-| Project Manager | Coordinates all employees and manages reporting |
-| SEO Research Specialist | Researches SEO trends and opportunities |
-| Keyword Analyst | Identifies keywords and search intent |
-| Technical SEO Auditor | Checks website technical health |
-| SEO Content Writer | Creates SEO-friendly content |
-| On-Page SEO Specialist | Optimizes website pages and metadata |
-| Competitor and Backlink Analyst | Analyzes competitors and backlinks |
-| SEO Performance Analyst | Evaluates SEO performance and results |
+Ledger columns: Task ID, Timestamp, Assigned By, Agent Name, Task Description, Priority, Status, Output / Result Link, Completion Time.
 
-## 4. Project Manager Automation
+## Gmail SMTP setup
+Use a Google App Password (with 2-Step Verification enabled), not your normal Gmail password. Add SMTP settings to Streamlit Secrets. Test with the Integrations page.
 
-The Project Manager is responsible for coordinating and monitoring the seven other AI employees.
-
-The planned reporting system includes:
-
-**Google Sheets Task Ledger**
-
-The spreadsheet tracks:
-- Timestamp
-- Agent Name
-- Task Performed
-- Output Status
-
-**Gmail Daily Reporting**
-
-The Project Manager's daily report summarizes employee activities, completed tasks, pending work, and potential issues.
-
-## 5. System Architecture
-
-The project is organized into the following main components:
-
-- `agents/` – AI employee configurations.
-- `config/` – Configuration files.
-- `data/` – Project data.
-- `src/` – Application source code.
-- `tests/` – Testing files.
-- `README.md` – Project documentation.
-
-Additional documentation:
-- `agency-plan.md`
-- `employee-roles.md`
-- `workflow-architecture.md`
-
-## 6. Technologies and Tools
-
-- Python
-- AI Employees Repository
-- GitHub
-- Google Sheets
-- Gmail
-- Automation scripts and integrations
-
-## 7. Project Workflow
-
-1. The Project Manager coordinates employee assignments.
-2. SEO Research Specialist researches opportunities.
-3. Keyword Analyst identifies relevant keywords.
-4. Technical SEO Auditor evaluates website health.
-5. SEO Content Writer prepares optimized content.
-6. On-Page SEO Specialist improves website pages.
-7. Competitor and Backlink Analyst evaluates competitors.
-8. SEO Performance Analyst reviews results.
-9. The Project Manager consolidates progress and prepares reports.
-
-## 8. Project Deliverables
-
-- AI employee configurations.
-- Agency plan and employee role documentation.
-- Workflow architecture.
-- Automation implementation.
-- Google Sheets task tracking.
-- Gmail reporting integration.
-- Project demonstration and presentation.
-
-## 9. Project Links
-
-**GitHub Repository:**  
-https://github.com/maryakhila/autonomous-seo-agency
-
-**Google Sheets Dashboard:**  
-[Insert your actual Google Sheets link]](https://docs.google.com/spreadsheets/d/1omDDhS-7GaX9kwHZqEdzUY9wOc93GLOEuAwG8QlZ9h4/edit?usp=sharing)
-
-## 10. Conclusion
-
-This project demonstrates the design of an autonomous SEO Agency using multiple specialized AI employees.
-
-The system is designed to improve task coordination, automate SEO workflows, centralize project monitoring, and provide regular progress reports through an AI-powered Project Manager.
+## Security / academic honesty
+The login is a basic single-Boss gate suitable for a course prototype, not enterprise-grade authentication. Use a strong password and do not publish credentials in GitHub. Do not use fabricated task results, leads, posts, or KPI values. Test every integration and show only real records in your demonstration.
