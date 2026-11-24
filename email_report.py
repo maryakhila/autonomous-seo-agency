@@ -20,22 +20,41 @@ def build_daily_report():
         lines.append(f"- {s['Employee']}: {s['Completed']} completed; {s['Pending']} pending; average completion hours: {s['Average completion hours']}")
     return "\n".join(lines)
 
+
 def send_daily_report():
-    required=["SMTP_HOST","SMTP_PORT","SMTP_USER","SMTP_PASSWORD","BOSS_EMAIL"]
-    missing=[k for k in required if not os.getenv(k)]
-    # Streamlit secrets are exposed as environment variables only if configured in hosting environment.
-    if missing:
-        try:
-            import streamlit as st
-            cfg={k:st.secrets[k] for k in required}
-        except Exception as e:
-            raise RuntimeError("Configure SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASSWORD and BOSS_EMAIL in Streamlit Secrets.") from e
-    else: cfg={k:os.getenv(k) for k in required}
-    msg=EmailMessage()
-    msg["Subject"]=f"SEO Agency Daily Status — {date.today().isoformat()}"
-    msg["From"]=cfg["SMTP_USER"]; msg["To"]=cfg["BOSS_EMAIL"]
-    msg.set_content(build_daily_report())
-    with smtplib.SMTP(cfg["SMTP_HOST"], int(cfg["SMTP_PORT"])) as server:
-        server.starttls()
-        server.login(cfg["SMTP_USER"], cfg["SMTP_PASSWORD"])
-        server.send_message(msg)
+    import os
+    import json
+    import urllib.request
+
+    try:
+        import streamlit as st
+        script_url = st.secrets["APPS_SCRIPT_URL"]
+        shared_secret = st.secrets["APPS_SCRIPT_SECRET"]
+    except Exception:
+        script_url = os.getenv("APPS_SCRIPT_URL")
+        shared_secret = os.getenv("APPS_SCRIPT_SECRET")
+
+    if not script_url or not shared_secret:
+        raise RuntimeError("Apps Script URL or Shared Secret is missing.")
+
+    payload = {
+        "token": shared_secret,
+        "action": "sendEmail",
+        "subject": f"SEO Agency Daily Status — {date.today().isoformat()}",
+        "body": build_daily_report()
+    }
+
+    request = urllib.request.Request(
+        script_url,
+        data=json.dumps(payload).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST"
+    )
+
+    with urllib.request.urlopen(request, timeout=30) as response:
+        result = json.loads(response.read().decode("utf-8"))
+
+    if not result.get("success"):
+        raise RuntimeError(result.get("error", "Email sending failed."))
+
+    return result
