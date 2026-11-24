@@ -40,7 +40,7 @@ if not st.session_state.get("authenticated", False):
 with st.sidebar:
     st.title("📈 SEO Agency")
     st.caption("Boss Command Center")
-    page = st.radio("Navigation", ["Task Overview", "Task Assignment", "Live Task Board", "Reports & KPIs", "Boss / Employee Chat", "Employee Overview", "Integrations"])
+    page = st.radio("Navigation", ["Agency Overview", "Task Assignment", "Live Task Board", "Reports & KPIs", "Boss / Employee Chat", "Employee Overview", "Integrations"])
     if st.button("Sign out"):
         st.session_state["authenticated"] = False
         st.rerun()
