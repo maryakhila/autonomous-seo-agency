@@ -61,8 +61,8 @@ if page == "Agency Overview":
         st.dataframe(df, use_container_width=True, hide_index=True)
     else:
         st.info("No tasks have been recorded yet. Create the first task in Task Assignment.")
-    st.subheader("Workflow")
-    st.markdown("**Boss → Project Manager or specialist → task execution and status updates → persistent database → Google Sheets ledger → reports, chat and daily email.**")
+   
+    
     st.caption("A task is not treated as completed until its real output/result is recorded.")
 
 elif page == "Task Assignment":
