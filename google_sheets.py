@@ -6,8 +6,8 @@ import streamlit as st
 
 def sheet_is_configured():
     return bool(
-        st.secrets.get("APPS_SCRIPT_WEB_APP_URL")
-        and st.secrets.get("APPS_SCRIPT_SHARED_SECRET")
+        st.secrets.get("APPS_SCRIPT_URL")
+        and st.secrets.get("APPS_SCRIPT__SECRET")
     )
 
 
@@ -19,7 +19,7 @@ def sync_task_to_sheet(task):
         task_data = dict(task)
 
         payload = {
-            "token": st.secrets["APPS_SCRIPT_SHARED_SECRET"],
+            "token": st.secrets["APPS_SCRIPT_SECRET"],
             "action": "upsertTask",
             "task": {
                 "id": task_data.get("id", ""),
@@ -35,7 +35,7 @@ def sync_task_to_sheet(task):
         }
 
         response = requests.post(
-            st.secrets["APPS_SCRIPT_WEB_APP_URL"],
+            st.secrets["APPS_SCRIPT_URL"],
             json=payload,
             timeout=30
         )
