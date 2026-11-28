@@ -80,8 +80,8 @@ elif page == "Task Assignment":
         else:
             task_id = create_task(title, description, assignee, priority, deadline.isoformat(), "Boss")
             sync_task_to_sheet(get_task(task_id))
-            with st.spinner(f"{assignee} is working on task #{task_id} using Gemini AI..."):
-                result = execute_task(task_id, sync_callback=sync_task_to_sheet)
+          st.success(f"Task {task_id} assigned to {assignee}.")
+st.info("Task status: Queued. Update progress manually in Live Task Board.")
             if result["success"]:
                 st.success(f"Task {task_id} completed by {assignee}. The employee's actual output has been saved.")
                 st.markdown("**Employee output**")
