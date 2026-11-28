@@ -13,19 +13,26 @@ from database import (
     get_employee_overview,
     chat_history,
     save_chat,
+    create_lead,
+    list_leads,
+    update_lead,
 )
+
 from project_manager import (
     answer_boss_question,
     try_create_task_from_chat,
 )
+
 from google_sheets import (
     sync_task_to_sheet,
     sheet_is_configured,
 )
+
 from email_report import (
     build_daily_report,
     send_daily_report,
 )
+
 from agent_runner import EMPLOYEES
 from task_execution import execute_task
 
@@ -52,7 +59,9 @@ def is_logged_in():
 
     with st.sidebar:
         st.subheader("Boss Login")
+
         username = st.text_input("Username", key="login_user")
+
         password = st.text_input(
             "Password",
             type="password",
@@ -74,10 +83,12 @@ def is_logged_in():
 
 if not st.session_state.get("authenticated", False):
     st.title("📈 Autonomous SEO Agency")
+
     st.write(
         "Boss-only command center. Sign in using the "
         "credentials configured by the administrator."
     )
+
     is_logged_in()
     st.stop()
 
@@ -90,6 +101,7 @@ with st.sidebar:
         "Navigation",
         [
             "Agency Overview",
+            "Lead Generation",
             "Task Assignment",
             "Live Task Board",
             "Reports & KPIs",
@@ -107,7 +119,9 @@ with st.sidebar:
 st.title(page)
 
 
+# =====================================================
 # AGENCY OVERVIEW
+# =====================================================
 
 if page == "Agency Overview":
 
@@ -117,14 +131,17 @@ if page == "Agency Overview":
     c1, c2, c3, c4 = st.columns(4)
 
     c1.metric("All tasks", len(tasks))
+
     c2.metric(
         "Queued",
         sum(t["status"] == "Queued" for t in tasks),
     )
+
     c3.metric(
         "In progress",
         sum(t["status"] == "In Progress" for t in tasks),
     )
+
     c4.metric(
         "Blocked",
         sum(t["status"] == "Blocked" for t in tasks),
@@ -138,6 +155,7 @@ if page == "Agency Overview":
                 [t["status"] for t in tasks]
             ).value_counts()
         )
+
         st.dataframe(
             df,
             use_container_width=True,
@@ -151,7 +169,264 @@ if page == "Agency Overview":
     )
 
 
+# =====================================================
+# LEAD GENERATION
+# =====================================================
+
+elif page == "Lead Generation":
+
+    st.subheader("🎯 Lead Generation")
+    st.write(
+        "Manage potential SEO clients and track sales opportunities."
+    )
+
+    all_leads = list_leads()
+
+    total_leads = len(all_leads)
+
+    qualified_leads = sum(
+        lead["lead_status"] == "Qualified"
+        for lead in all_leads
+    )
+
+    contacted_leads = sum(
+        lead["lead_status"] == "Contacted"
+        for lead in all_leads
+    )
+
+    converted_leads = sum(
+        lead["lead_status"] == "Converted"
+        for lead in all_leads
+    )
+
+    c1, c2, c3, c4 = st.columns(4)
+
+    c1.metric("Total leads", total_leads)
+    c2.metric("Qualified", qualified_leads)
+    c3.metric("Contacted", contacted_leads)
+    c4.metric("Converted", converted_leads)
+
+    st.divider()
+
+    st.markdown("### Add a new lead")
+
+    with st.form("new_lead"):
+
+        business_name = st.text_input("Business name")
+
+        website = st.text_input("Website")
+
+        country = st.text_input("Country")
+
+        city = st.text_input("City")
+
+        niche = st.selectbox(
+            "Business niche",
+            ["Roofing", "HVAC", "Other"],
+        )
+
+        email = st.text_input("Business email")
+
+        phone = st.text_input("Business phone")
+
+        seo_opportunity = st.text_area(
+            "SEO opportunity / Business observations",
+            placeholder=(
+                "Example: Missing location pages, "
+                "weak website content, poor local SEO..."
+            ),
+        )
+
+        seo_score = st.slider(
+            "SEO opportunity score",
+            min_value=0,
+            max_value=100,
+            value=50,
+        )
+
+        notes = st.text_area("Additional notes")
+
+        submitted = st.form_submit_button("Save Lead")
+
+    if submitted:
+
+        if not business_name.strip():
+            st.error("Business name is required.")
+
+        else:
+            try:
+                lead_id = create_lead(
+                    business_name=business_name,
+                    website=website,
+                    country=country,
+                    city=city,
+                    email=email,
+                    phone=phone,
+                    niche=niche,
+                    seo_opportunity=seo_opportunity,
+                    seo_score=seo_score,
+                    source="Manual",
+                    notes=notes,
+                )
+
+                st.success(
+                    f"Lead saved. Lead ID: {lead_id}"
+                )
+
+                st.rerun()
+
+            except Exception as error:
+                st.error(f"Could not save lead: {error}")
+
+    st.divider()
+
+    st.markdown("### Saved Leads")
+
+    all_leads = list_leads()
+
+    if all_leads:
+
+        f1, f2 = st.columns(2)
+
+        status_options = [
+            "All",
+            "New",
+            "Qualified",
+            "Contacted",
+            "Converted",
+            "Disqualified",
+        ]
+
+        selected_status = f1.selectbox(
+            "Filter by status",
+            status_options,
+        )
+
+        niche_options = ["All"] + sorted(
+            {
+                lead["niche"]
+                for lead in all_leads
+                if lead["niche"]
+            }
+        )
+
+        selected_niche = f2.selectbox(
+            "Filter by niche",
+            niche_options,
+        )
+
+        filtered_leads = list_leads(
+            status=(
+                None
+                if selected_status == "All"
+                else selected_status
+            ),
+            niche=(
+                None
+                if selected_niche == "All"
+                else selected_niche
+            ),
+        )
+
+        st.metric(
+            "Filtered leads",
+            len(filtered_leads),
+        )
+
+        if filtered_leads:
+
+            leads_df = pd.DataFrame(filtered_leads)
+
+            st.dataframe(
+                leads_df,
+                use_container_width=True,
+                hide_index=True,
+            )
+
+            st.download_button(
+                "Download leads CSV",
+                leads_df.to_csv(index=False).encode("utf-8"),
+                "seo_agency_leads.csv",
+                "text/csv",
+            )
+
+            st.divider()
+
+            st.markdown("### Update Lead Status")
+
+            lead_ids = [
+                lead["id"]
+                for lead in filtered_leads
+            ]
+
+            selected_lead = st.selectbox(
+                "Select lead",
+                lead_ids,
+                format_func=lambda x: next(
+                    (
+                        f"#{lead['id']} — {lead['business_name']}"
+                        for lead in filtered_leads
+                        if lead["id"] == x
+                    ),
+                    str(x),
+                ),
+            )
+
+            current_lead = next(
+                lead
+                for lead in filtered_leads
+                if lead["id"] == selected_lead
+            )
+
+            editable_statuses = status_options[1:]
+
+            current_status = current_lead["lead_status"]
+
+            status_index = (
+                editable_statuses.index(current_status)
+                if current_status in editable_statuses
+                else 0
+            )
+
+            new_status = st.selectbox(
+                "New status",
+                editable_statuses,
+                index=status_index,
+            )
+
+            if st.button("Update Lead Status"):
+
+                try:
+                    update_lead(
+                        selected_lead,
+                        lead_status=new_status,
+                    )
+
+                    st.success("Lead status updated.")
+                    st.rerun()
+
+                except Exception as error:
+                    st.error(
+                        f"Could not update lead: {error}"
+                    )
+
+        else:
+            st.info("No leads match the selected filters.")
+
+    else:
+        st.info(
+            "No leads saved yet. Add your first lead above."
+        )
+
+    st.caption(
+        "Current version supports manual lead entry and management. "
+        "Automatic business discovery is a separate upcoming feature."
+    )
+
+
+# =====================================================
 # TASK ASSIGNMENT
+# =====================================================
 
 elif page == "Task Assignment":
 
@@ -160,6 +435,7 @@ elif page == "Task Assignment":
     with st.form("new_task"):
 
         title = st.text_input("Task title")
+
         description = st.text_area("Task description")
 
         assignee = st.selectbox(
@@ -223,7 +499,9 @@ elif page == "Task Assignment":
     )
 
 
+# =====================================================
 # LIVE TASK BOARD
+# =====================================================
 
 elif page == "Live Task Board":
 
@@ -262,7 +540,9 @@ elif page == "Live Task Board":
         ]
 
         emp = f1.selectbox("Employee", employees)
+
         status = f2.selectbox("Status", statuses)
+
         priority = f3.selectbox("Priority", priorities)
 
         if emp != "All":
@@ -280,7 +560,10 @@ elif page == "Live Task Board":
             hide_index=True,
         )
 
-        ids = [int(x) for x in d["id"].tolist()]
+        ids = [
+            int(x)
+            for x in d["id"].tolist()
+        ]
 
         if ids:
 
@@ -301,10 +584,12 @@ elif page == "Live Task Board":
 
             st.write("Assigned to:", task["agent_name"])
             st.write("Created:", task["created_at"])
+
             st.write(
                 "Deadline:",
                 task["deadline"] or "Not set",
             )
+
             st.write("Priority:", task["priority"])
             st.write("Current status:", task["status"])
 
@@ -317,8 +602,6 @@ elif page == "Live Task Board":
                 "Blocked reason:",
                 task["blocked_reason"] or "—",
             )
-
-            # RUN AI AGENT
 
             if task["status"] in ["Queued", "Blocked"]:
 
@@ -341,11 +624,14 @@ elif page == "Live Task Board":
                                 st.success(
                                     "AI task completed successfully!"
                                 )
+
                                 st.write(
                                     result["task"]["output_link"]
                                 )
+
                             else:
                                 st.error("AI task failed.")
+
                                 st.write(
                                     result["task"]["blocked_reason"]
                                 )
@@ -358,16 +644,16 @@ elif page == "Live Task Board":
                     st.rerun()
 
             elif task["status"] == "In Progress":
+
                 st.warning(
                     "This task is already marked In Progress."
                 )
 
             elif task["status"] == "Completed":
+
                 st.success(
                     "This task has already been completed."
                 )
-
-            # MANUAL TASK UPDATE
 
             with st.expander("Manual task update"):
 
@@ -427,7 +713,9 @@ elif page == "Live Task Board":
                         st.rerun()
 
 
+# =====================================================
 # REPORTS & KPIs
+# =====================================================
 
 elif page == "Reports & KPIs":
 
@@ -498,7 +786,9 @@ elif page == "Reports & KPIs":
     )
 
 
+# =====================================================
 # BOSS / EMPLOYEE CHAT
+# =====================================================
 
 elif page == "Boss / Employee Chat":
 
@@ -516,6 +806,7 @@ elif page == "Boss / Employee Chat":
     history = chat_history(role)
 
     for item in history[-30:]:
+
         with st.chat_message(item["speaker"]):
             st.write(item["message"])
 
@@ -547,7 +838,9 @@ elif page == "Boss / Employee Chat":
         st.rerun()
 
 
+# =====================================================
 # EMPLOYEE OVERVIEW
+# =====================================================
 
 elif page == "Employee Overview":
 
@@ -563,18 +856,23 @@ elif page == "Employee Overview":
 
                 st.subheader(emp["name"])
                 st.caption(emp["role"])
+
                 st.write("Status:", emp["status"])
+
                 st.write(
                     "Current task:",
                     emp["current_task"] or "Idle",
                 )
+
                 st.write(
                     "Today's completed outputs:",
                     emp["today_outputs"],
                 )
 
 
+# =====================================================
 # INTEGRATIONS
+# =====================================================
 
 elif page == "Integrations":
 
