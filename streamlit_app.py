@@ -163,7 +163,7 @@ elif page == "Reports & KPIs":
     st.caption("Lead, published-content and support-ticket KPIs are not fabricated. Add dedicated lead/post/ticket records and integrations before reporting those business-specific metrics.")
 
 elif page == "Boss / Employee Chat":
-    role = st.selectbox("Chat with", ["Project Manager"] + list(EMPLOYEES.keys())[1:])
+    role = st.selectbox("Chat with", ["Project Manager & Proposal Agent"] + list(EMPLOYEES.keys()))
     history = chat_history(role)
     for item in history[-30:]:
         with st.chat_message(item["speaker"]):
