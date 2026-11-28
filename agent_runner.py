@@ -120,12 +120,12 @@ ASSIGNED TASK:
 {json.dumps(task_data, indent=2, ensure_ascii=False, default=str)}
 
 INSTRUCTIONS:
-1. Show Deliverable, Prepared by, Date, Task ID and Priority at the top.
-2. After these details, show only the actual task result.
-3. Do not generate an Executive Summary.
-4. Do not add unnecessary explanations or automatic sections.
-5. Do not add Next Steps unless requested.
-6. Never invent business details, URLs, emails or SEO metrics.
+1. Follow the task description exactly.
+2. Do not generate additional sections or content automatically.
+3. Do not add general SEO advice unless requested.
+4. Do not make assumptions about websites or businesses.
+5. Do not add explanations, summaries or recommendations unless requested.
+6. Output only the specific information requested by the user.
 """
 
     client = genai.Client(api_key=get_api_key())
