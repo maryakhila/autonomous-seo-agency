@@ -7,6 +7,14 @@ DB_PATH = os.getenv("SQLITE_PATH", "agency.db")
 
 STATUSES = ("Queued", "In Progress", "Blocked", "Completed")
 
+LEAD_STATUSES = (
+    "New",
+    "Qualified",
+    "Contacted",
+    "Converted",
+    "Disqualified"
+)
+
 EMPLOYEE_ROLES = {
     "Lead Generator Agent": "Sales and acquisition; prospect research and SEO gap scoring",
     "Project Manager & Proposal Agent": "Project coordination, proposals and client onboarding",
@@ -25,8 +33,14 @@ def connect():
     return con
 
 
+def now():
+    return datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
+
+
 def init_db():
     with connect() as c:
+
+        # Tasks table
         c.execute("""
             CREATE TABLE IF NOT EXISTS tasks (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -45,6 +59,7 @@ def init_db():
             )
         """)
 
+        # Chats table
         c.execute("""
             CREATE TABLE IF NOT EXISTS chats (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -55,10 +70,41 @@ def init_db():
             )
         """)
 
+        # Leads table
+        c.execute("""
+            CREATE TABLE IF NOT EXISTS leads (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                business_name TEXT NOT NULL,
+                website TEXT,
+                country TEXT,
+                city TEXT,
+                email TEXT,
+                phone TEXT,
+                niche TEXT,
+                seo_opportunity TEXT,
+                seo_score INTEGER,
+                lead_status TEXT NOT NULL DEFAULT 'New',
+                source TEXT,
+                notes TEXT,
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL
+            )
+        """)
 
-def now():
-    return datetime.now(timezone.utc).astimezone().isoformat(timespec="seconds")
+        c.execute("""
+            CREATE INDEX IF NOT EXISTS idx_leads_status
+            ON leads(lead_status)
+        """)
 
+        c.execute("""
+            CREATE INDEX IF NOT EXISTS idx_leads_niche
+            ON leads(niche)
+        """)
+
+
+# -------------------------
+# TASK FUNCTIONS
+# -------------------------
 
 def create_task(title, description, agent_name, priority, deadline=None, assigned_by="Boss"):
     if agent_name not in EMPLOYEE_ROLES:
@@ -117,6 +163,196 @@ def update_task(task_id, status, output_link="", blocked_reason=""):
             stamp, completed, task_id
         ))
 
+
+# -------------------------
+# LEAD GENERATION FUNCTIONS
+# -------------------------
+
+def create_lead(
+    business_name,
+    website=None,
+    country=None,
+    city=None,
+    email=None,
+    phone=None,
+    niche=None,
+    seo_opportunity=None,
+    seo_score=None,
+    source=None,
+    notes=None
+):
+    """Save a new business lead."""
+
+    business_name = (business_name or "").strip()
+
+    if not business_name:
+        raise ValueError("Business name is required")
+
+    if seo_score is not None:
+        seo_score = int(seo_score)
+
+        if not 0 <= seo_score <= 100:
+            raise ValueError("SEO score must be between 0 and 100")
+
+    stamp = now()
+
+    with connect() as c:
+
+        # Avoid duplicate websites
+        if website:
+            existing = c.execute("""
+                SELECT id FROM leads
+                WHERE LOWER(website) = LOWER(?)
+                LIMIT 1
+            """, (website.strip(),)).fetchone()
+
+            if existing:
+                return existing["id"]
+
+        # Avoid duplicate business emails
+        if email:
+            existing = c.execute("""
+                SELECT id FROM leads
+                WHERE LOWER(email) = LOWER(?)
+                LIMIT 1
+            """, (email.strip(),)).fetchone()
+
+            if existing:
+                return existing["id"]
+
+        cur = c.execute("""
+            INSERT INTO leads (
+                business_name,
+                website,
+                country,
+                city,
+                email,
+                phone,
+                niche,
+                seo_opportunity,
+                seo_score,
+                lead_status,
+                source,
+                notes,
+                created_at,
+                updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            business_name,
+            website,
+            country,
+            city,
+            email,
+            phone,
+            niche,
+            seo_opportunity,
+            seo_score,
+            "New",
+            source,
+            notes,
+            stamp,
+            stamp
+        ))
+
+        return cur.lastrowid
+
+
+def get_lead(lead_id):
+    """Get one lead by ID."""
+
+    with connect() as c:
+        row = c.execute(
+            "SELECT * FROM leads WHERE id=?",
+            (lead_id,)
+        ).fetchone()
+
+        return dict(row) if row else None
+
+
+def list_leads(status=None, niche=None):
+    """List leads with optional filters."""
+
+    query = "SELECT * FROM leads WHERE 1=1"
+    params = []
+
+    if status:
+        query += " AND lead_status=?"
+        params.append(status)
+
+    if niche:
+        query += " AND niche=?"
+        params.append(niche)
+
+    query += " ORDER BY id DESC"
+
+    with connect() as c:
+        return [
+            dict(row)
+            for row in c.execute(query, params).fetchall()
+        ]
+
+
+def update_lead(lead_id, **fields):
+    """Update permitted lead fields."""
+
+    allowed_fields = {
+        "business_name",
+        "website",
+        "country",
+        "city",
+        "email",
+        "phone",
+        "niche",
+        "seo_opportunity",
+        "seo_score",
+        "lead_status",
+        "source",
+        "notes"
+    }
+
+    updates = {
+        key: value
+        for key, value in fields.items()
+        if key in allowed_fields
+    }
+
+    if not updates:
+        return False
+
+    if "lead_status" in updates:
+        if updates["lead_status"] not in LEAD_STATUSES:
+            raise ValueError("Invalid lead status")
+
+    if "seo_score" in updates and updates["seo_score"] is not None:
+        score = int(updates["seo_score"])
+
+        if not 0 <= score <= 100:
+            raise ValueError("SEO score must be between 0 and 100")
+
+        updates["seo_score"] = score
+
+    updates["updated_at"] = now()
+
+    columns = ", ".join(
+        f"{key}=?" for key in updates
+    )
+
+    values = list(updates.values())
+    values.append(lead_id)
+
+    with connect() as c:
+        cur = c.execute(
+            f"UPDATE leads SET {columns} WHERE id=?",
+            values
+        )
+
+        return cur.rowcount > 0
+
+
+# -------------------------
+# EMPLOYEE STATISTICS
+# -------------------------
 
 def employee_stats():
     tasks = list_tasks()
@@ -185,6 +421,10 @@ def get_employee_overview():
 
     return out
 
+
+# -------------------------
+# CHAT FUNCTIONS
+# -------------------------
 
 def chat_history(role):
     with connect() as c:
