@@ -51,7 +51,6 @@ def is_logged_in():
 
     with st.sidebar:
         st.subheader("Boss Login")
-
         username = st.text_input("Username", key="login_user")
         password = st.text_input(
             "Password",
@@ -107,9 +106,7 @@ with st.sidebar:
 st.title(page)
 
 
-# --------------------------------------------------
 # AGENCY OVERVIEW
-# --------------------------------------------------
 
 if page == "Agency Overview":
 
@@ -140,7 +137,6 @@ if page == "Agency Overview":
                 [t["status"] for t in tasks]
             ).value_counts()
         )
-
         st.dataframe(
             df,
             use_container_width=True,
@@ -155,9 +151,7 @@ if page == "Agency Overview":
     )
 
 
-# --------------------------------------------------
 # TASK ASSIGNMENT
-# --------------------------------------------------
 
 elif page == "Task Assignment":
 
@@ -189,10 +183,7 @@ elif page == "Task Assignment":
     if submitted:
 
         if not title.strip() or not description.strip():
-
-            st.error(
-                "Enter both a title and a description."
-            )
+            st.error("Enter both a title and a description.")
 
         else:
 
@@ -217,7 +208,6 @@ elif page == "Task Assignment":
             )
 
             if not sheet_is_configured():
-
                 st.warning(
                     "Google Sheets is not configured. "
                     "The task is saved in the local database, "
@@ -230,21 +220,17 @@ elif page == "Task Assignment":
 
     st.write(
         "The Project Manager is also an assignable role. "
-        "Assigning to the Project Manager records a "
-        "coordination task."
+        "Assigning to the Project Manager records a coordination task."
     )
 
 
-# --------------------------------------------------
 # LIVE TASK BOARD
-# --------------------------------------------------
 
 elif page == "Live Task Board":
 
     tasks = list_tasks()
 
     if not tasks:
-
         st.info("No tasks yet.")
 
     else:
@@ -314,36 +300,18 @@ elif page == "Live Task Board":
                 f"**Description:** {task['description']}"
             )
 
-            st.write(
-                "Assigned to:",
-                task["agent_name"],
-            )
-
-            st.write(
-                "Created:",
-                task["created_at"],
-            )
-
+            st.write("Assigned to:", task["agent_name"])
+            st.write("Created:", task["created_at"])
             st.write(
                 "Deadline:",
                 task["deadline"] or "Not set",
             )
-
-            st.write(
-                "Priority:",
-                task["priority"],
-            )
-
-            st.write(
-                "Current status:",
-                task["status"],
-            )
-
+            st.write("Priority:", task["priority"])
+            st.write("Current status:", task["status"])
             st.write(
                 "Output/result:",
                 task["output_link"] or "No output recorded",
             )
-
             st.write(
                 "Blocked reason:",
                 task["blocked_reason"] or "—",
@@ -358,11 +326,10 @@ elif page == "Live Task Board":
                     "Completed",
                 ]
 
-                current_status = (
-                    task["status"]
-                    if task["status"] in status_options
-                    else "Queued"
-                )
+                current_status = task["status"]
+
+                if current_status not in status_options:
+                    current_status = "Queued"
 
                 new_status = st.selectbox(
                     "Update status",
@@ -387,7 +354,6 @@ elif page == "Live Task Board":
             if save_update:
 
                 if new_status == "Blocked" and not reason.strip():
-
                     st.error(
                         "Please explain why this task is blocked."
                     )
@@ -404,13 +370,10 @@ elif page == "Live Task Board":
                     sync_task_to_sheet(get_task(selected))
 
                     st.success("Task updated successfully.")
-
                     st.rerun()
 
 
-# --------------------------------------------------
-# REPORTS AND KPIs
-# --------------------------------------------------
+# REPORTS & KPIs
 
 elif page == "Reports & KPIs":
 
@@ -440,15 +403,25 @@ elif page == "Reports & KPIs":
             - timedelta(days=date.today().weekday())
         ).isoformat()
 
-        st.write(
-            f"Tasks created today: **"
-            f"{sum(t['created_at'][:10] == today for t in tasks)}**"
+        tasks_created_today = sum(
+            1
+            for t in tasks
+            if (t.get("created_at") or "")[:10] == today
+        )
+
+        completed_this_week = sum(
+            1
+            for t in tasks
+            if t["status"] == "Completed"
+            and (t.get("completed_at") or "")[:10] >= week_start
         )
 
         st.write(
-            f"Tasks completed this week: **"
-            f"{sum(t['status'] == 'Completed' and "
-            f"(t['completed_at'] or '')[:10] >= week_start for t in tasks)}**"
+            f"Tasks created today: **{tasks_created_today}**"
+        )
+
+        st.write(
+            f"Tasks completed this week: **{completed_this_week}**"
         )
 
         st.bar_chart(df["status"].value_counts())
@@ -461,7 +434,6 @@ elif page == "Reports & KPIs":
         )
 
     else:
-
         st.info(
             "Reports will appear when tasks have been recorded."
         )
@@ -472,9 +444,7 @@ elif page == "Reports & KPIs":
     )
 
 
-# --------------------------------------------------
 # BOSS / EMPLOYEE CHAT
-# --------------------------------------------------
 
 elif page == "Boss / Employee Chat":
 
@@ -487,15 +457,11 @@ elif page == "Boss / Employee Chat":
         ]
     )
 
-    role = st.selectbox(
-        "Chat with",
-        chat_roles,
-    )
+    role = st.selectbox("Chat with", chat_roles)
 
     history = chat_history(role)
 
     for item in history[-30:]:
-
         with st.chat_message(item["speaker"]):
             st.write(item["message"])
 
@@ -520,7 +486,6 @@ elif page == "Boss / Employee Chat":
             sync_task_to_sheet(get_task(new_task_id))
 
         else:
-
             response = answer_boss_question(prompt)
 
         save_chat(role, "assistant", response)
@@ -528,9 +493,7 @@ elif page == "Boss / Employee Chat":
         st.rerun()
 
 
-# --------------------------------------------------
 # EMPLOYEE OVERVIEW
-# --------------------------------------------------
 
 elif page == "Employee Overview":
 
@@ -545,28 +508,19 @@ elif page == "Employee Overview":
             with st.container(border=True):
 
                 st.subheader(emp["name"])
-
                 st.caption(emp["role"])
-
-                st.write(
-                    "Status:",
-                    emp["status"],
-                )
-
+                st.write("Status:", emp["status"])
                 st.write(
                     "Current task:",
                     emp["current_task"] or "Idle",
                 )
-
                 st.write(
                     "Today's completed outputs:",
                     emp["today_outputs"],
                 )
 
 
-# --------------------------------------------------
 # INTEGRATIONS
-# --------------------------------------------------
 
 elif page == "Integrations":
 
@@ -603,13 +557,10 @@ elif page == "Integrations":
     if st.button("Send daily report now"):
 
         try:
-
             send_daily_report()
-
             st.success("Daily report sent.")
 
         except Exception as error:
-
             st.error(
                 f"Email was not sent: {error}"
             )
