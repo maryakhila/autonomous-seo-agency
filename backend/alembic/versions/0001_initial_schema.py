@@ -37,57 +37,67 @@ def upgrade() -> None:
 
     op.create_table(
         "users",
-        sa.Column("id", sa.Integer(), primary_key=True),
+        sa.Column("id", sa.Integer(), primary_key=True, nullable=False),
         sa.Column("email", sa.String(255), nullable=False, unique=True),
         sa.Column("hashed_password", sa.String(255), nullable=False),
         sa.Column("full_name", sa.String(255), nullable=False),
         sa.Column("role", user_role, nullable=False),
         sa.Column("is_active", sa.Boolean(), nullable=False, server_default=sa.true()),
     )
+    op.create_index("ix_users_id", "users", ["id"])
+    op.create_index("ix_users_email", "users", ["email"])
 
     op.create_table(
         "clients",
-        sa.Column("id", sa.Integer(), primary_key=True),
-        sa.Column("user_id", sa.Integer(), sa.ForeignKey("users.id"), nullable=True),
+        sa.Column("id", sa.Integer(), primary_key=True, nullable=False),
+        sa.Column("user_id", sa.Integer(), sa.ForeignKey("users.id"), nullable=False),
         sa.Column("company_name", sa.String(255), nullable=False),
         sa.Column("website", sa.String(500), nullable=True),
         sa.Column("status", client_status, nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
+        sa.Column("created_at", sa.DateTime(), nullable=False, server_default=sa.func.now()),
     )
+    op.create_index("ix_clients_id", "clients", ["id"])
+    op.create_index("ix_clients_user_id", "clients", ["user_id"])
 
     op.create_table(
         "leads",
-        sa.Column("id", sa.Integer(), primary_key=True),
+        sa.Column("id", sa.Integer(), primary_key=True, nullable=False),
         sa.Column("name", sa.String(255), nullable=False),
         sa.Column("email", sa.String(255), nullable=False),
         sa.Column("company_name", sa.String(255), nullable=True),
         sa.Column("website", sa.String(500), nullable=True),
         sa.Column("notes", sa.Text(), nullable=True),
         sa.Column("status", lead_status, nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
+        sa.Column("created_at", sa.DateTime(), nullable=False, server_default=sa.func.now()),
     )
+    op.create_index("ix_leads_id", "leads", ["id"])
+    op.create_index("ix_leads_email", "leads", ["email"])
 
     op.create_table(
         "agent_tasks",
-        sa.Column("id", sa.Integer(), primary_key=True),
+        sa.Column("id", sa.Integer(), primary_key=True, nullable=False),
         sa.Column("client_id", sa.Integer(), sa.ForeignKey("clients.id"), nullable=False),
         sa.Column("title", sa.String(255), nullable=False),
         sa.Column("description", sa.Text(), nullable=True),
         sa.Column("agent_name", sa.String(100), nullable=False),
         sa.Column("status", task_status, nullable=False),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
+        sa.Column("created_at", sa.DateTime(), nullable=False, server_default=sa.func.now()),
     )
+    op.create_index("ix_agent_tasks_id", "agent_tasks", ["id"])
+    op.create_index("ix_agent_tasks_client_id", "agent_tasks", ["client_id"])
 
     op.create_table(
         "deliverables",
-        sa.Column("id", sa.Integer(), primary_key=True),
+        sa.Column("id", sa.Integer(), primary_key=True, nullable=False),
         sa.Column("client_id", sa.Integer(), sa.ForeignKey("clients.id"), nullable=False),
         sa.Column("title", sa.String(255), nullable=False),
         sa.Column("deliverable_type", sa.String(100), nullable=False),
         sa.Column("content", sa.Text(), nullable=True),
         sa.Column("status", sa.String(50), nullable=False, server_default="draft"),
-        sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
+        sa.Column("created_at", sa.DateTime(), nullable=False, server_default=sa.func.now()),
     )
+    op.create_index("ix_deliverables_id", "deliverables", ["id"])
+    op.create_index("ix_deliverables_client_id", "deliverables", ["client_id"])
 
 
 def downgrade() -> None:
