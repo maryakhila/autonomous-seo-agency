@@ -2,6 +2,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.clients import router as clients_router
+
 app = FastAPI(
     title="AI SEO Agency API",
     description="Private AI-powered SEO agency platform",
@@ -14,6 +16,11 @@ app.add_middleware(
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
+)
+
+app.include_router(
+    clients_router,
+    prefix="/api/v1",
 )
 
 
