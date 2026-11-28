@@ -35,6 +35,7 @@ from email_report import (
 
 from agent_runner import EMPLOYEES
 from task_execution import execute_task
+from lead_generator import analyze_seo_lead
 
 
 st.set_page_config(
@@ -46,10 +47,16 @@ st.set_page_config(
 init_db()
 
 
+# =====================================================
+# LOGIN
+# =====================================================
+
 def is_logged_in():
+
     try:
         expected_user = st.secrets["BOSS_USERNAME"]
         expected_password = st.secrets["BOSS_PASSWORD"]
+
     except Exception:
         st.error(
             "Login is not configured. Add BOSS_USERNAME "
@@ -58,6 +65,7 @@ def is_logged_in():
         return False
 
     with st.sidebar:
+
         st.subheader("Boss Login")
 
         username = st.text_input("Username", key="login_user")
@@ -69,12 +77,15 @@ def is_logged_in():
         )
 
         if st.button("Sign in", use_container_width=True):
+
             if (
                 username == expected_user
                 and password == expected_password
             ):
+
                 st.session_state["authenticated"] = True
                 st.rerun()
+
             else:
                 st.error("Incorrect username or password.")
 
@@ -82,6 +93,7 @@ def is_logged_in():
 
 
 if not st.session_state.get("authenticated", False):
+
     st.title("📈 Autonomous SEO Agency")
 
     st.write(
@@ -93,7 +105,12 @@ if not st.session_state.get("authenticated", False):
     st.stop()
 
 
+# =====================================================
+# SIDEBAR
+# =====================================================
+
 with st.sidebar:
+
     st.title("📈 SEO Agency")
     st.caption("Boss Command Center")
 
@@ -112,6 +129,7 @@ with st.sidebar:
     )
 
     if st.button("Sign out"):
+
         st.session_state["authenticated"] = False
         st.rerun()
 
@@ -150,6 +168,7 @@ if page == "Agency Overview":
     st.subheader("Task status")
 
     if tasks:
+
         st.bar_chart(
             pd.Series(
                 [t["status"] for t in tasks]
@@ -161,6 +180,7 @@ if page == "Agency Overview":
             use_container_width=True,
             hide_index=True,
         )
+
     else:
         st.info("No tasks have been recorded yet.")
 
@@ -176,9 +196,15 @@ if page == "Agency Overview":
 elif page == "Lead Generation":
 
     st.subheader("🎯 Lead Generation")
+
     st.write(
-        "Manage potential SEO clients and track sales opportunities."
+        "Manage potential SEO clients and analyze "
+        "their SEO opportunities using Gemini."
     )
+
+    # -----------------------------------------------
+    # LEAD METRICS
+    # -----------------------------------------------
 
     all_leads = list_leads()
 
@@ -208,21 +234,180 @@ elif page == "Lead Generation":
 
     st.divider()
 
-    st.markdown("### Add a new lead")
+    # -----------------------------------------------
+    # GEMINI AI LEAD ANALYZER
+    # -----------------------------------------------
+
+    st.markdown("## 🤖 Gemini AI Lead Analyzer")
+
+    st.write(
+        "Enter a business and website to get a preliminary "
+        "SEO opportunity assessment."
+    )
+
+    with st.form("ai_lead_analyzer"):
+
+        ai_business = st.text_input(
+            "Business name",
+            key="ai_business",
+        )
+
+        ai_website = st.text_input(
+            "Website URL",
+            key="ai_website",
+            placeholder="https://example.com",
+        )
+
+        ai_country = st.text_input(
+            "Country",
+            value="USA",
+            key="ai_country",
+        )
+
+        ai_city = st.text_input(
+            "City",
+            key="ai_city",
+        )
+
+        ai_niche = st.selectbox(
+            "Business niche",
+            ["Roofing", "HVAC", "Other"],
+            key="ai_lead_niche",
+        )
+
+        analyze_clicked = st.form_submit_button(
+            "🔍 Analyze SEO Opportunity",
+            use_container_width=True,
+        )
+
+    if analyze_clicked:
+
+        if not ai_business.strip() or not ai_website.strip():
+
+            st.error(
+                "Business name and website are required."
+            )
+
+        else:
+
+            with st.spinner(
+                "Gemini is analyzing the opportunity..."
+            ):
+
+                try:
+
+                    result = analyze_seo_lead(
+                        business_name=ai_business.strip(),
+                        website=ai_website.strip(),
+                        city=ai_city.strip(),
+                        country=ai_country.strip(),
+                        niche=ai_niche,
+                    )
+
+                    st.session_state["ai_lead_result"] = result
+
+                    st.session_state["ai_lead_city"] = ai_city
+                    st.session_state["ai_lead_country"] = ai_country
+                    st.session_state["ai_lead_niche"] = ai_niche
+
+                except Exception as error:
+
+                    st.error(
+                        f"Analysis failed: {error}"
+                    )
+
+    # -----------------------------------------------
+    # DISPLAY GEMINI RESULT
+    # -----------------------------------------------
+
+    result = st.session_state.get("ai_lead_result")
+
+    if result:
+
+        st.divider()
+
+        st.subheader("Gemini Analysis Result")
+
+        score = result["seo_score"]
+
+        st.metric(
+            "SEO Opportunity Score",
+            f"{score}/100",
+        )
+
+        st.write(
+            "Confidence:",
+            result["confidence"],
+        )
+
+        st.markdown(result["analysis"])
+
+        if st.button(
+            "💾 Save AI Analyzed Lead",
+            use_container_width=True,
+        ):
+
+            try:
+
+                lead_id = create_lead(
+                    business_name=result["business_name"],
+                    website=result["website"],
+                    country=st.session_state["ai_lead_country"],
+                    city=st.session_state["ai_lead_city"],
+                    niche=st.session_state["ai_lead_niche"],
+                    seo_opportunity=result["analysis"],
+                    seo_score=result["seo_score"],
+                    source="Gemini AI",
+                )
+
+                st.success(
+                    f"Lead saved successfully: #{lead_id}"
+                )
+
+                del st.session_state["ai_lead_result"]
+
+                st.rerun()
+
+            except Exception as error:
+
+                st.error(
+                    f"Could not save lead: {error}"
+                )
+
+    st.divider()
+
+    # -----------------------------------------------
+    # MANUAL LEAD ENTRY
+    # -----------------------------------------------
+
+    st.markdown("## Add a Lead Manually")
 
     with st.form("new_lead"):
 
-        business_name = st.text_input("Business name")
+        business_name = st.text_input(
+            "Business name",
+            key="manual_business",
+        )
 
-        website = st.text_input("Website")
+        website = st.text_input(
+            "Website",
+            key="manual_website",
+        )
 
-        country = st.text_input("Country")
+        country = st.text_input(
+            "Country",
+            key="manual_country",
+        )
 
-        city = st.text_input("City")
+        city = st.text_input(
+            "City",
+            key="manual_city",
+        )
 
         niche = st.selectbox(
             "Business niche",
             ["Roofing", "HVAC", "Other"],
+            key="manual_niche",
         )
 
         email = st.text_input("Business email")
@@ -230,11 +415,7 @@ elif page == "Lead Generation":
         phone = st.text_input("Business phone")
 
         seo_opportunity = st.text_area(
-            "SEO opportunity / Business observations",
-            placeholder=(
-                "Example: Missing location pages, "
-                "weak website content, poor local SEO..."
-            ),
+            "SEO opportunity / Business observations"
         )
 
         seo_score = st.slider(
@@ -242,19 +423,26 @@ elif page == "Lead Generation":
             min_value=0,
             max_value=100,
             value=50,
+            key="manual_score",
         )
 
         notes = st.text_area("Additional notes")
 
-        submitted = st.form_submit_button("Save Lead")
+        submitted = st.form_submit_button(
+            "Save Lead",
+            use_container_width=True,
+        )
 
     if submitted:
 
         if not business_name.strip():
+
             st.error("Business name is required.")
 
         else:
+
             try:
+
                 lead_id = create_lead(
                     business_name=business_name,
                     website=website,
@@ -276,11 +464,18 @@ elif page == "Lead Generation":
                 st.rerun()
 
             except Exception as error:
-                st.error(f"Could not save lead: {error}")
+
+                st.error(
+                    f"Could not save lead: {error}"
+                )
 
     st.divider()
 
-    st.markdown("### Saved Leads")
+    # -----------------------------------------------
+    # SAVED LEADS
+    # -----------------------------------------------
+
+    st.markdown("## Saved Leads")
 
     all_leads = list_leads()
 
@@ -397,30 +592,38 @@ elif page == "Lead Generation":
             if st.button("Update Lead Status"):
 
                 try:
+
                     update_lead(
                         selected_lead,
                         lead_status=new_status,
                     )
 
                     st.success("Lead status updated.")
+
                     st.rerun()
 
                 except Exception as error:
+
                     st.error(
                         f"Could not update lead: {error}"
                     )
 
         else:
-            st.info("No leads match the selected filters.")
+
+            st.info(
+                "No leads match the selected filters."
+            )
 
     else:
+
         st.info(
             "No leads saved yet. Add your first lead above."
         )
 
     st.caption(
-        "Current version supports manual lead entry and management. "
-        "Automatic business discovery is a separate upcoming feature."
+        "Gemini provides a preliminary assessment based on supplied "
+        "business information. It does not automatically crawl "
+        "or verify the live website."
     )
 
 
@@ -459,7 +662,10 @@ elif page == "Task Assignment":
     if submitted:
 
         if not title.strip() or not description.strip():
-            st.error("Enter both a title and a description.")
+
+            st.error(
+                "Enter both a title and a description."
+            )
 
         else:
 
@@ -484,6 +690,7 @@ elif page == "Task Assignment":
             )
 
             if not sheet_is_configured():
+
                 st.warning(
                     "Google Sheets is not configured. "
                     "The task is saved in the local database."
@@ -508,6 +715,7 @@ elif page == "Live Task Board":
     tasks = list_tasks()
 
     if not tasks:
+
         st.info("No tasks yet.")
 
     else:
@@ -615,12 +823,14 @@ elif page == "Live Task Board":
                     ):
 
                         try:
+
                             result = execute_task(
                                 selected,
                                 sync_callback=sync_task_to_sheet,
                             )
 
                             if result["success"]:
+
                                 st.success(
                                     "AI task completed successfully!"
                                 )
@@ -630,6 +840,7 @@ elif page == "Live Task Board":
                                 )
 
                             else:
+
                                 st.error("AI task failed.")
 
                                 st.write(
@@ -637,6 +848,7 @@ elif page == "Live Task Board":
                                 )
 
                         except Exception as error:
+
                             st.error(
                                 f"Task execution error: {error}"
                             )
@@ -694,6 +906,7 @@ elif page == "Live Task Board":
                 if save_update:
 
                     if new_status == "Blocked" and not reason.strip():
+
                         st.error(
                             "Please explain why this task is blocked."
                         )
@@ -710,6 +923,7 @@ elif page == "Live Task Board":
                         sync_task_to_sheet(get_task(selected))
 
                         st.success("Task updated successfully.")
+
                         st.rerun()
 
 
@@ -776,6 +990,7 @@ elif page == "Reports & KPIs":
         )
 
     else:
+
         st.info(
             "Reports will appear when tasks have been recorded."
         )
@@ -831,6 +1046,7 @@ elif page == "Boss / Employee Chat":
             sync_task_to_sheet(get_task(new_task_id))
 
         else:
+
             response = answer_boss_question(prompt)
 
         save_chat(role, "assistant", response)
@@ -909,10 +1125,13 @@ elif page == "Integrations":
     if st.button("Send daily report now"):
 
         try:
+
             send_daily_report()
+
             st.success("Daily report sent.")
 
         except Exception as error:
+
             st.error(
                 f"Email was not sent: {error}"
             )
