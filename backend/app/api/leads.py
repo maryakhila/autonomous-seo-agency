@@ -1,63 +1,85 @@
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel
 
 from app.core.database import get_db
-from app.models.lead import Lead, LeadStatus
+from app.models.agent_task import AgentTask, TaskStatus
 
 
-router = APIRouter(prefix="/leads", tags=["Leads"])
+router = APIRouter(prefix="/tasks", tags=["Agent Tasks"])
 
 
-class LeadCreate(BaseModel):
-    name: str
-    email: str
-    company_name: str | None = None
-    website: str | None = None
-    notes: str | None = None
+class TaskCreate(BaseModel):
+    client_id: int
+    title: str
+    description: str | None = None
+    agent_name: str
 
 
 @router.post("/")
-async def create_lead(
-    data: LeadCreate,
+async def create_task(
+    data: TaskCreate,
     db: AsyncSession = Depends(get_db),
 ):
-    lead = Lead(
-        name=data.name,
-        email=data.email,
-        company_name=data.company_name,
-        website=data.website,
-        notes=data.notes,
+    task = AgentTask(
+        client_id=data.client_id,
+        title=data.title,
+        description=data.description,
+        agent_name=data.agent_name,
     )
 
-    db.add(lead)
+    db.add(task)
     await db.commit()
-    await db.refresh(lead)
+    await db.refresh(task)
 
     return {
-        "id": lead.id,
-        "name": lead.name,
-        "email": lead.email,
-        "status": lead.status.value,
+        "id": task.id,
+        "title": task.title,
+        "agent_name": task.agent_name,
+        "status": task.status.value,
     }
 
 
 @router.get("/")
-async def list_leads(
+async def list_tasks(
     db: AsyncSession = Depends(get_db),
 ):
-    result = await db.execute(select(Lead))
-    leads = result.scalars().all()
+    result = await db.execute(select(AgentTask))
+    tasks = result.scalars().all()
 
     return [
         {
-            "id": lead.id,
-            "name": lead.name,
-            "email": lead.email,
-            "company_name": lead.company_name,
-            "status": lead.status.value,
+            "id": task.id,
+            "client_id": task.client_id,
+            "title": task.title,
+            "agent_name": task.agent_name,
+            "status": task.status.value,
         }
-        for lead in leads
+        for task in tasks
     ]
+
+
+@router.patch("/{task_id}/status")
+async def update_task_status(
+    task_id: int,
+    status: TaskStatus,
+    db: AsyncSession = Depends(get_db),
+):
+    result = await db.execute(
+        select(AgentTask).where(AgentTask.id == task_id)
+    )
+    task = result.scalar_one_or_none()
+
+    if task is None:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    task.status = status
+    await db.commit()
+
+    return {
+        "message": "Task status updated",
+        "task_id": task.id,
+        "status": task.status.value,
+    }
