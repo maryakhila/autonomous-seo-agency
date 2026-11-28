@@ -26,6 +26,7 @@ from email_report import (
     build_daily_report,
     send_daily_report,
 )
+from agent_runner import EMPLOYEES
 from task_execution import execute_task
 
 
@@ -146,8 +147,7 @@ if page == "Agency Overview":
         st.info("No tasks have been recorded yet.")
 
     st.caption(
-        "Task progress and completion are updated manually "
-        "by the Boss."
+        "Task progress and completion are based on saved task records."
     )
 
 
@@ -204,14 +204,13 @@ elif page == "Task Assignment":
 
             st.info(
                 "Task status: Queued. "
-                "Update progress manually in Live Task Board."
+                "Open Live Task Board and click Run AI Agent to execute it."
             )
 
             if not sheet_is_configured():
                 st.warning(
                     "Google Sheets is not configured. "
-                    "The task is saved in the local database, "
-                    "but the external ledger was not updated."
+                    "The task is saved in the local database."
                 )
 
     st.divider()
@@ -308,69 +307,124 @@ elif page == "Live Task Board":
             )
             st.write("Priority:", task["priority"])
             st.write("Current status:", task["status"])
+
             st.write(
                 "Output/result:",
                 task["output_link"] or "No output recorded",
             )
+
             st.write(
                 "Blocked reason:",
                 task["blocked_reason"] or "—",
             )
 
-            with st.form("update_task"):
+            # RUN AI AGENT
 
-                status_options = [
-                    "Queued",
-                    "In Progress",
-                    "Blocked",
-                    "Completed",
-                ]
+            if task["status"] in ["Queued", "Blocked"]:
 
-                current_status = task["status"]
+                if st.button(
+                    "🚀 Run AI Agent",
+                    use_container_width=True,
+                ):
 
-                if current_status not in status_options:
-                    current_status = "Queued"
+                    with st.spinner(
+                        f"{task['agent_name']} is working..."
+                    ):
 
-                new_status = st.selectbox(
-                    "Update status",
-                    status_options,
-                    index=status_options.index(current_status),
-                )
+                        try:
+                            result = execute_task(
+                                selected,
+                                sync_callback=sync_task_to_sheet,
+                            )
 
-                output = st.text_area(
-                    "Output / result",
-                    value=task["output_link"] or "",
-                )
+                            if result["success"]:
+                                st.success(
+                                    "AI task completed successfully!"
+                                )
+                                st.write(
+                                    result["task"]["output_link"]
+                                )
+                            else:
+                                st.error("AI task failed.")
+                                st.write(
+                                    result["task"]["blocked_reason"]
+                                )
 
-                reason = st.text_input(
-                    "Reason (required when blocked)",
-                    value=task["blocked_reason"] or "",
-                )
+                        except Exception as error:
+                            st.error(
+                                f"Task execution error: {error}"
+                            )
 
-                save_update = st.form_submit_button(
-                    "Save task update"
-                )
-
-            if save_update:
-
-                if new_status == "Blocked" and not reason.strip():
-                    st.error(
-                        "Please explain why this task is blocked."
-                    )
-
-                else:
-
-                    update_task(
-                        selected,
-                        new_status,
-                        output,
-                        reason,
-                    )
-
-                    sync_task_to_sheet(get_task(selected))
-
-                    st.success("Task updated successfully.")
                     st.rerun()
+
+            elif task["status"] == "In Progress":
+                st.warning(
+                    "This task is already marked In Progress."
+                )
+
+            elif task["status"] == "Completed":
+                st.success(
+                    "This task has already been completed."
+                )
+
+            # MANUAL TASK UPDATE
+
+            with st.expander("Manual task update"):
+
+                with st.form("update_task"):
+
+                    status_options = [
+                        "Queued",
+                        "In Progress",
+                        "Blocked",
+                        "Completed",
+                    ]
+
+                    current_status = task["status"]
+
+                    if current_status not in status_options:
+                        current_status = "Queued"
+
+                    new_status = st.selectbox(
+                        "Update status",
+                        status_options,
+                        index=status_options.index(current_status),
+                    )
+
+                    output = st.text_area(
+                        "Output / result",
+                        value=task["output_link"] or "",
+                    )
+
+                    reason = st.text_input(
+                        "Reason (required when blocked)",
+                        value=task["blocked_reason"] or "",
+                    )
+
+                    save_update = st.form_submit_button(
+                        "Save task update"
+                    )
+
+                if save_update:
+
+                    if new_status == "Blocked" and not reason.strip():
+                        st.error(
+                            "Please explain why this task is blocked."
+                        )
+
+                    else:
+
+                        update_task(
+                            selected,
+                            new_status,
+                            output,
+                            reason,
+                        )
+
+                        sync_task_to_sheet(get_task(selected))
+
+                        st.success("Task updated successfully.")
+                        st.rerun()
 
 
 # REPORTS & KPIs
