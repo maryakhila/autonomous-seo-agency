@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.api.clients import router as clients_router
 from app.api.leads import router as leads_router
 from app.api.tasks import router as tasks_router
+from app.api.deliverables import router as deliverables_router
 
 app = FastAPI(
     title="AI SEO Agency API",
@@ -23,6 +24,7 @@ app.add_middleware(
 app.include_router(clients_router, prefix="/api/v1")
 app.include_router(leads_router, prefix="/api/v1")
 app.include_router(tasks_router, prefix="/api/v1")
+app.include_router(deliverables_router, prefix="/api/v1")
 
 
 @app.get("/")
