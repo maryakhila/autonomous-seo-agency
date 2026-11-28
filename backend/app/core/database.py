@@ -5,16 +5,13 @@ from sqlalchemy.ext.asyncio import (
     AsyncSession,
 )
 from sqlalchemy.orm import DeclarativeBase
-import os
 
-DATABASE_URL = os.getenv(
-    "DATABASE_URL",
-    "postgresql+asyncpg://postgres:postgres@localhost:5432/seo_agency",
-)
+from app.core.config import settings
+
 
 engine = create_async_engine(
-    DATABASE_URL,
-    echo=False,
+    settings.database_url,
+    echo=settings.environment == "development",
 )
 
 AsyncSessionLocal = async_sessionmaker(
