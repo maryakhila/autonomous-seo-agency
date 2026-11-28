@@ -120,13 +120,12 @@ ASSIGNED TASK:
 {json.dumps(task_data, indent=2, ensure_ascii=False, default=str)}
 
 INSTRUCTIONS:
-1. Complete the assigned work.
-2. Produce a useful, detailed deliverable.
-3. Explain your recommendations.
-4. Identify missing information.
-5. Never invent search metrics, rankings or analytics.
-6. Distinguish verified facts from assumptions.
-7. Include a NEXT STEPS section.
+1. Show Deliverable, Prepared by, Date, Task ID and Priority at the top.
+2. After these details, show only the actual task result.
+3. Do not generate an Executive Summary.
+4. Do not add unnecessary explanations or automatic sections.
+5. Do not add Next Steps unless requested.
+6. Never invent business details, URLs, emails or SEO metrics.
 """
 
     client = genai.Client(api_key=get_api_key())
