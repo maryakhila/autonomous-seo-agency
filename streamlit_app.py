@@ -26,7 +26,7 @@ from email_report import (
     build_daily_report,
     send_daily_report,
 )
-from agent_runner import EMPLOYEES
+from task_execution import execute_task
 
 
 st.set_page_config(
